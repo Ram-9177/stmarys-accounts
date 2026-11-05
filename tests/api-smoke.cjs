@@ -81,6 +81,19 @@ function sqliteD1() {
     const session = await countedCall(voucherHandler, 'validateSession', {}, 2);
     assert.equal(session.user.username, 'admin1');
 
+    // Regular users must use their assigned college access on the server and in the UI.
+    await call(voucherHandler, 'createUser', {
+      username: 'hyd_user', password: 'Hyd-user-123', role: 'user', college: 'smhyd', college_access: 'smhyd'
+    });
+    DB.sqlite.prepare("UPDATE users SET must_change_password=0 WHERE username='hyd_user'").run();
+    token = '';
+    const hydLogin = await call(voucherHandler, 'login', { username: 'hyd_user', password: 'Hyd-user-123' });
+    token = hydLogin.token;
+    assert.equal(hydLogin.user.collegeAccess, 'smhyd');
+    await call(voucherHandler, 'syncData', { college: 'smhyd' });
+    await call(voucherHandler, 'syncData', { college: 'smgg' }, 403);
+    token = login.token;
+
     const saved = await countedCall(voucherHandler, 'saveVoucher', {
       voucher: { college: 'smgg', type: 'debit', dateISO: '2026-10-29', head: 'Office supplies', paidTo: 'Test payee', towards: 'API smoke check', block: 'Test block', amount: 1250, mode: 'Cash' }
     }, 4);
