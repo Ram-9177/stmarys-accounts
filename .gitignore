@@ -27,3 +27,15 @@ scratch/
 .dev.vars.*
 *.pem
 *.key
+
+# Allow committed env templates
+!.env.example
+
+# Build output
+dist/
+coverage/
+
+# Local DB / backups - never commit data
+*.sqlite
+*.sql.gz
+backups/

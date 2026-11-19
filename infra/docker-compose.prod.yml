@@ -1,0 +1,73 @@
+# Production stack for a single AWS EC2 instance (see infra/AWS-DEPLOY.md).
+#   cd /opt/stmarys/infra && docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# caddy    - HTTPS (free Let's Encrypt certificate, auto-renewed) -> app
+# app      - Express API + React app
+# postgres - PostgreSQL 16 (data on an EBS volume)
+# redis    - Redis 7 (sessions, rate limits)
+# backup   - nightly pg_dump, uploaded to S3 and kept 14 days locally
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+
+  app:
+    build: { context: .., dockerfile: Dockerfile }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: https://${DOMAIN}
+      DATABASE_URL: postgres://stmarys:${POSTGRES_PASSWORD}@postgres:5432/stmarys
+      REDIS_URL: redis://redis:6379/0
+      TRUST_PROXY: '1'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stmarys
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: stmarys
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stmarys -d stmarys']
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: ['redisdata:/data']
+
+  backup:
+    build: { context: ., dockerfile: backup.Dockerfile }
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: stmarys
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: stmarys
+      BACKUP_S3_URI: ${BACKUP_S3_URI}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+    volumes: ['./backups:/backups']
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

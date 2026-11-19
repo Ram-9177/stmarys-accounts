@@ -1,0 +1,9 @@
+{$DOMAIN} {
+	encode zstd gzip
+	# Vendor attachments are uploaded as base64 JSON (max ~25 MB).
+	request_body {
+		max_size 30MB
+	}
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy app:4000
+}

@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+legacy
+backups
+*.sqlite
+*.sql
+*.sql.gz
