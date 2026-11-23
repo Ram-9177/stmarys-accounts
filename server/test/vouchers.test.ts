@@ -45,6 +45,22 @@ describe('vouchers', () => {
     expect((await admin.get('/api/vouchers?college=smgg')).body.vouchers).toHaveLength(3);
   });
 
+  it('view_vendor_ledger alone does not reveal other users\' vouchers, but ledger payments stay complete', async () => {
+    const clerk = await login('clerk'); // default perms include view_vendor_ledger
+    const other = await login('editor');
+    await clerk.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Mine' }));
+    await other.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Theirs' }));
+    await other.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Vendor pay', vendorId: 'V00001', amount: 4000 }));
+
+    const list = (await clerk.get('/api/vouchers?college=smgg')).body.vouchers.map((v: { head: string }) => v.head);
+    expect(list).toEqual(['Mine']);
+    const pay = await clerk.get('/api/vendors/payments?college=smgg');
+    expect(pay.status).toBe(200);
+    expect(pay.body.vouchers.map((v: { head: string; amount: number }) => [v.head, v.amount])).toEqual([['Vendor pay', 4000]]);
+    const noVendorPerm = await login('clerk2');
+    expect((await noVendorPerm.get('/api/vendors/payments?college=smgg')).status).toBe(403);
+  });
+
   it('enforces college access', async () => {
     const clerk = await login('clerk');
     expect((await clerk.get('/api/vouchers?college=smwec')).status).toBe(403);

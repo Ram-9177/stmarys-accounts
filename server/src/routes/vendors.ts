@@ -8,6 +8,7 @@ import { allowedCollege, canViewVendors, hasPerm, type PermUser } from '../lib/p
 import { rateLimit } from '../lib/rateLimit.js';
 import { clean } from '../lib/text.js';
 import { clientIp, type AuthedRequest } from '../middleware/auth.js';
+import { voucherDto, type VoucherRow } from './vouchers.js';
 
 export const vendorsRouter = Router();
 
@@ -123,6 +124,24 @@ vendorsRouter.get(
   ah<AuthedRequest>(async (req, res) => {
     needViewVendors(req.user);
     res.json({ vendors: await listVendors(allowedCollege(req.user, req.query.college)) });
+  }),
+);
+
+/**
+ * Payments linked to vendors (any creator), for the vendor ledger and the voucher form's
+ * "paid so far" figure. Users who may only see their own vouchers still get correct ledger totals.
+ */
+vendorsRouter.get(
+  '/payments',
+  ah<AuthedRequest>(async (req, res) => {
+    needViewVendors(req.user);
+    const college = allowedCollege(req.user, req.query.college);
+    const rows = await db<VoucherRow>('vouchers')
+      .whereNull('deleted_at')
+      .andWhere({ college })
+      .andWhereNot('vendor_id', '')
+      .orderBy([{ column: 'date', order: 'desc' }, { column: 'id', order: 'desc' }]);
+    res.json({ vouchers: rows.map(voucherDto) });
   }),
 );
 

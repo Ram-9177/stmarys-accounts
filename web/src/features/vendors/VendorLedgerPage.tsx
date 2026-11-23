@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { errorMessage } from '@/api/client';
-import { useColleges, useDeleteVendor, useVendors, useVouchers } from '@/api/hooks';
+import { useColleges, useDeleteVendor, useVendorPayments, useVendors } from '@/api/hooks';
 import type { Vendor, Voucher } from '@/api/types';
 import { useSession } from '@/auth/AuthProvider';
 import { Button, Card, ConfirmDialog, cx, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, StatCard, Table } from '@/components/ui';
@@ -33,7 +33,7 @@ export function VendorLedgerPage() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const vendorsQ = useVendors(college);
-  const vouchersQ = useVouchers(college);
+  const vouchersQ = useVendorPayments(college);
   const del = useDeleteVendor();
 
   const [query, setQuery] = useState('');

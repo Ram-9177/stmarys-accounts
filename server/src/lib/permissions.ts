@@ -113,8 +113,13 @@ export function isVoucherAdmin(user: PermUser): boolean {
   return isSuperAdmin(user) || user.role === 'admin' || user.custom_role === 'head';
 }
 
+/**
+ * Who sees every voucher in a college. Everyone else sees their own vouchers plus on-account ones.
+ * (v1 also let view_vendor_ledger holders see everything; the vendor ledger now reads
+ * vendor-linked payments from /api/vendors/payments instead.)
+ */
 export function canViewAllVouchers(user: PermUser): boolean {
-  return isVoucherAdmin(user) || hasPerm(user, 'view_all_vouchers') || hasPerm(user, 'view_vendor_ledger');
+  return isVoucherAdmin(user) || hasPerm(user, 'view_all_vouchers');
 }
 
 export function canViewVendors(user: PermUser): boolean {

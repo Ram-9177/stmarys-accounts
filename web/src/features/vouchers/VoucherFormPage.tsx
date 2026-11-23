@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { errorMessage } from '@/api/client';
-import { useAddBlock, useAddHead, useBlocks, useHeads, useSaveVoucher, useVendors, useVouchers } from '@/api/hooks';
+import { useAddBlock, useAddHead, useBlocks, useHeads, useSaveVoucher, useVendorPayments, useVendors, useVouchers } from '@/api/hooks';
 import type { AccountHead, Vendor, Voucher, VoucherType } from '@/api/types';
 import { isVoucherAdmin, useSession } from '@/auth/AuthProvider';
 import { Button, Card, cx, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea } from '@/components/ui';
@@ -69,6 +69,7 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
   const blocks = useBlocks(college);
   const canSeeVendors = admin || can('view_vendor_ledger') || can('manage_vendors');
   const vendors = useVendors(college, canSeeVendors);
+  const vendorPayments = useVendorPayments(college, canSeeVendors);
 
   const set = <K extends keyof VoucherDraft>(k: K, v: VoucherDraft[K]) => {
     setDraft((d) => ({ ...d, [k]: v }));
@@ -218,7 +219,7 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
                 {t === 'debit' && canSeeVendors ? (
                   <VendorField
                     vendors={vendors.data ?? []}
-                    vouchers={vouchers.data ?? []}
+                    vouchers={vendorPayments.data ?? []}
                     value={draft.vendorId}
                     onChange={(vendor) =>
                       setDraft((d) => {

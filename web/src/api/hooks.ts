@@ -203,6 +203,19 @@ export function useDeleteVendor() {
   });
 }
 
+/**
+ * Vouchers linked to a vendor (any creator) - feeds the vendor ledger and the voucher form's
+ * "paid so far". Keyed under ['vouchers', college] so saving a voucher refreshes it too.
+ */
+export function useVendorPayments(college: CollegeCode | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...qk.vouchers(college ?? ''), 'vendor-payments'] as const,
+    enabled: !!college && enabled,
+    refetchInterval: LIVE_SYNC_MS,
+    queryFn: () => get<{ vouchers: Voucher[] }>('/api/vendors/payments', { college }).then((r) => r.vouchers),
+  });
+}
+
 /** URL to open/download a vendor attachment (served with the user's session cookie). */
 export function vendorFileUrl(college: CollegeCode, vendorId: string, fileId: string, download = false) {
   const q = new URLSearchParams({ college });

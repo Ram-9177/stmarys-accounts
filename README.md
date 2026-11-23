@@ -66,7 +66,7 @@ npm run typecheck
 - The login-screen "reset another user's password" panel. Use *Users & Permissions* instead.
 - Excel cell colours in exports. Widths, merged headers and number formats are kept.
 
-**Unchanged on purpose, for your review:** as in v1, anyone holding `view_vendor_ledger` sees **every** voucher in their college, not only their own. That permission is in the default set for regular users. The rule is in `canViewAllVouchers` in `server/src/lib/permissions.ts`.
+**Tightened:** in v1, anyone holding `view_vendor_ledger` (in the default set for regular users) could see **every** voucher in their college. Now only main administrators, admins, Heads and holders of `view_all_vouchers` see all vouchers. Everyone else sees their own vouchers plus on-account ones, and their dashboard, cash book and exports cover only those. The vendor ledger still shows complete payment totals, because it reads vendor-linked payments from `GET /api/vendors/payments`.
 
 ## Project layout
 
