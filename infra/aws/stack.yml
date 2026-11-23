@@ -1,0 +1,256 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  St. Mary's Voucher System - one EC2 server (Docker: Caddy HTTPS, app, PostgreSQL 16, Redis 7),
+  Elastic IP, ECR image repository, S3 backup bucket, and a GitHub Actions deploy role (OIDC, no stored keys).
+  Created by infra/aws/setup.sh.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: ''
+    Description: >-
+      Your domain, e.g. vouchers.stmarys.edu.in (point an A record at the ElasticIp output).
+      Leave empty to use the free address <elastic-ip>.sslip.io, which needs no DNS setup.
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+    Description: t3.small (2 GB) recommended; t3.micro (1 GB) is cheaper and free-tier eligible but tight.
+  GitHubRepo:
+    Type: String
+    Default: Ram-9177/stmarys-accounts
+  DeployBranches:
+    Type: CommaDelimitedList
+    Default: main,aws-typescript-rewrite
+    Description: Branches allowed to deploy from GitHub Actions.
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Set false if this AWS account already has the token.actions.githubusercontent.com provider.
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  CreateOidc: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+  HasDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Resources:
+  # ---------------- Storage ----------------
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration: { Status: Enabled }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - Id: archive-and-expire
+            Status: Enabled
+            Transitions: [{ StorageClass: GLACIER_IR, TransitionInDays: 30 }]
+            ExpirationInDays: 365
+            NoncurrentVersionExpiration: { NoncurrentDays: 30 }
+
+  ImageRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${AWS::StackName}-app'
+      ImageScanningConfiguration: { ScanOnPush: true }
+      ImageTagMutability: MUTABLE
+      EmptyOnDelete: true
+      LifecyclePolicy:
+        LifecyclePolicyText: >-
+          {"rules":[{"rulePriority":1,"description":"keep last 15 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":15},"action":{"type":"expire"}}]}
+
+  # ---------------- Server ----------------
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: St Marys vouchers - HTTP/HTTPS only (admin access is via SSM Session Manager, no SSH)
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIpv6: '::/0' }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIpv6: '::/0' }
+
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+        - PolicyName: backups
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject]
+                Resource: !Sub '${BackupBucket.Arn}/*'
+
+  ServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref ServerRole]
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags: [{ Key: Name, Value: !Sub '${AWS::StackName}-ip' }]
+
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref ServerInstanceProfile
+      SecurityGroupIds: [!GetAtt ServerSecurityGroup.GroupId]
+      # IMDSv2 only; hop limit 2 so the backup container can use the instance role.
+      MetadataOptions:
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+        HttpEndpoint: enabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 30, VolumeType: gp3, Encrypted: true, DeleteOnTermination: false }
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-server' }
+        - { Key: App, Value: stmarys-vouchers }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            # First boot: Docker, AWS CLI, the repo's infra files, and a generated .env.
+            # The app itself starts on the first GitHub Actions deploy.
+            set -euxo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+            fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+            apt-get update -y && apt-get install -y ca-certificates curl git openssl
+            curl -fsSL https://get.docker.com | sh
+            snap install aws-cli --classic
+            usermod -aG docker ubuntu
+            git clone --branch ${Branch} https://github.com/${GitHubRepo}.git /opt/stmarys
+            cd /opt/stmarys/infra
+            mkdir -p backups
+            if [ ! -f .env ]; then
+              umask 077
+              openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/jwt.pem
+              openssl pkey -in /tmp/jwt.pem -pubout -out /tmp/jwt.pub
+              cat > .env <<ENV
+            DOMAIN=${Domain}
+            POSTGRES_PASSWORD=$(openssl rand -hex 24)
+            JWT_PRIVATE_KEY=$(base64 -w0 /tmp/jwt.pem)
+            JWT_PUBLIC_KEY=$(base64 -w0 /tmp/jwt.pub)
+            BACKUP_S3_URI=s3://${BackupBucket}/postgres
+            AWS_REGION=${AWS::Region}
+            APP_IMAGE=
+            MS_TENANT_ID=common
+            MS_CLIENT_ID=
+            MS_CLIENT_SECRET=
+            SMTP_HOST=
+            ENV
+              shred -u /tmp/jwt.pem /tmp/jwt.pub
+            fi
+            chown -R ubuntu:ubuntu /opt/stmarys
+            touch /opt/stmarys/.bootstrap-done
+          - Branch: !Select [0, !Ref DeployBranches]
+            Domain: !If
+              - HasDomain
+              - !Ref DomainName
+              - !Join ['', [!Join ['-', !Split ['.', !Ref ElasticIp]], '.sslip.io']]
+
+  ElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ElasticIp.AllocationId
+      InstanceId: !Ref Server
+
+  # ---------------- GitHub Actions deploy role (OIDC) ----------------
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [6938fd4d98bab03faadb97b34396831e3780aea1]
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub 'arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub
+                    - 'repo:${GitHubRepo}:ref:refs/heads/${B}'
+                    - B: !Select [0, !Ref DeployBranches]
+                  - !Sub
+                    - 'repo:${GitHubRepo}:ref:refs/heads/${B}'
+                    - B: !Select [1, !Ref DeployBranches]
+      Policies:
+        - PolicyName: push-image-and-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !GetAtt ImageRepository.Arn
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub 'arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Server}'
+                  - !Sub 'arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript'
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations]
+                Resource: '*'
+
+Outputs:
+  ElasticIp:
+    Description: Public IP. With your own domain, create an A record pointing here.
+    Value: !Ref ElasticIp
+  SiteUrl:
+    Value: !If
+      - HasDomain
+      - !Sub 'https://${DomainName}'
+      - !Join ['', ['https://', !Join ['-', !Split ['.', !Ref ElasticIp]], '.sslip.io']]
+  InstanceId:
+    Value: !Ref Server
+  EcrRepositoryUri:
+    Value: !GetAtt ImageRepository.RepositoryUri
+  DeployRoleArn:
+    Value: !GetAtt GitHubDeployRole.Arn
+  BackupBucketName:
+    Value: !Ref BackupBucket

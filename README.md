@@ -8,7 +8,7 @@ v2 replaces the Cloudflare Pages + D1 version (kept for reference in [`legacy/`]
 |---|---|
 | API (`server/`) | Node.js + TypeScript, Express 4, PostgreSQL 16 via Knex, Redis 7, Zod validation, JWT (RS256) + bcrypt, Microsoft SSO (OpenID Connect), Nodemailer, Vitest + Supertest |
 | Web (`web/`) | React 19 + TypeScript, Vite, Tailwind CSS 4, TanStack Query, React Router 7, in-house component kit, Vitest + Testing Library |
-| Deploy (`infra/`) | Docker image (API serves the built web app), Caddy HTTPS, nightly `pg_dump` to S3. See [infra/AWS-DEPLOY.md](infra/AWS-DEPLOY.md) |
+| Deploy (`infra/`, `.github/`) | GitHub Actions: test → Docker image → Amazon ECR → EC2 via Systems Manager. CloudFormation stack, Caddy HTTPS, nightly `pg_dump` to S3. See [infra/AWS-DEPLOY.md](infra/AWS-DEPLOY.md) |
 
 ## Local development
 

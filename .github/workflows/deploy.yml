@@ -1,0 +1,147 @@
+name: Test and deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main, aws-typescript-rewrite]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stmarys_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/stmarys_test
+      TEST_REDIS_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+
+  image:
+    # Until AWS is connected (or on pull requests), still prove the production image builds and boots.
+    if: github.event_name == 'pull_request' || vars.AWS_DEPLOY_ROLE_ARN == ''
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: stmarys-app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Boot the image against Postgres and Redis
+        run: |
+          set -euo pipefail
+          docker network create ci
+          docker run -d --name pg --network ci -e POSTGRES_USER=stmarys -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=stmarys postgres:16-alpine
+          docker run -d --name redis --network ci redis:7-alpine
+          for i in $(seq 1 30); do docker exec pg pg_isready -U stmarys >/dev/null 2>&1 && break; sleep 2; done
+          docker run -d --name app --network ci -p 4000:4000 \
+            -e DATABASE_URL=postgres://stmarys:ci@pg:5432/stmarys -e REDIS_URL=redis://redis:6379/0 \
+            -e APP_ORIGIN=http://localhost:4000 -e COOKIE_SECURE=false \
+            -e JWT_PRIVATE_KEY="$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null | tee /tmp/k.pem | base64 -w0)" \
+            -e JWT_PUBLIC_KEY="$(openssl pkey -in /tmp/k.pem -pubout | base64 -w0)" \
+            stmarys-app:ci
+          for i in $(seq 1 30); do curl -fsS localhost:4000/api/health && break; sleep 2; done
+          echo
+          curl -fsS localhost:4000/api/health
+          curl -fsS localhost:4000/api/colleges/public | grep -q smgg
+          curl -fsS localhost:4000/ | grep -q '<div id="root">'
+          echo "image boots, migrates, serves API and web app"
+      - if: failure()
+        run: docker logs app || true
+
+  deploy:
+    # Deploys only when the AWS stack exists (setup.sh sets these repository variables).
+    if: github.event_name != 'pull_request' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ vars.ECR_REPOSITORY_URI }}:${{ github.sha }}
+            ${{ vars.ECR_REPOSITORY_URI }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to the server
+        run: |
+          set -euo pipefail
+          IMAGE="${{ vars.ECR_REPOSITORY_URI }}:${{ github.sha }}"
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --timeout-seconds 900 \
+            --parameters "commands=[\"bash -c 'cd /opt/stmarys && git fetch -q origin && git show ${GITHUB_SHA}:infra/aws/deploy-on-server.sh > /tmp/deploy.sh && bash /tmp/deploy.sh ${GITHUB_SHA} ${IMAGE}'\"]" \
+            --query Command.CommandId --output text)
+          echo "SSM command $CMD_ID"
+          for i in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "${{ vars.EC2_INSTANCE_ID }}" --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut|Cancelling) break ;;
+            esac
+            sleep 10
+          done
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query '[StandardOutputContent, StandardErrorContent]' --output text | tail -60
+          [ "$STATUS" = Success ] || { echo "Deploy failed: $STATUS"; exit 1; }
+
+      - name: Check the live site
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${{ vars.SITE_URL }}/api/health"; then echo; exit 0; fi
+            sleep 10
+          done
+          echo "Site not healthy at ${{ vars.SITE_URL }}"; exit 1

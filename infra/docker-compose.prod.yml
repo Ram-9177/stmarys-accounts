@@ -1,5 +1,7 @@
 # Production stack for a single AWS EC2 instance (see infra/AWS-DEPLOY.md).
-#   cd /opt/stmarys/infra && docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Normally started by the GitHub Actions deploy (infra/aws/deploy-on-server.sh), which sets
+# APP_IMAGE to the image it just pushed to Amazon ECR. Manual start on the server:
+#   cd /opt/stmarys/infra && docker compose -f docker-compose.prod.yml --env-file .env up -d
 #
 # caddy    - HTTPS (free Let's Encrypt certificate, auto-renewed) -> app
 # app      - Express API + React app
@@ -20,6 +22,8 @@ services:
     depends_on: [app]
 
   app:
+    # Built and pushed to ECR by GitHub Actions; falls back to a local build if APP_IMAGE is unset.
+    image: ${APP_IMAGE:-stmarys-app:local}
     build: { context: .., dockerfile: Dockerfile }
     restart: unless-stopped
     env_file: .env
