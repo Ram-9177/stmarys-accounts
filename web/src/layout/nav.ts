@@ -1,11 +1,12 @@
 import type { Permission } from '@/api/types';
 import { isVoucherAdmin } from '@/auth/AuthProvider';
 import type { CurrentUser } from '@/api/types';
+import type { IconName } from '@/components/icons';
 
 export interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  icon: IconName;
   visible: (u: CurrentUser, can: (p: Permission) => boolean) => boolean;
 }
 
@@ -20,27 +21,27 @@ export const NAV: NavGroup[] = [
   {
     title: 'Overview',
     items: [
-      { to: '/dashboard', label: 'Dashboard', icon: '▦', visible: (_u, can) => can('view_dashboard') },
-      { to: '/my-dashboard', label: 'My Dashboard', icon: '▦', visible: (_u, can) => !can('view_dashboard') },
-      { to: '/analytics', label: 'Analytics', icon: '◔', visible: (_u, can) => can('view_analytics') },
+      { to: '/dashboard', label: 'Dashboard', icon: 'dashboard', visible: (_u, can) => can('view_dashboard') },
+      { to: '/my-dashboard', label: 'My Dashboard', icon: 'dashboard', visible: (_u, can) => !can('view_dashboard') },
+      { to: '/analytics', label: 'Analytics', icon: 'analytics', visible: (_u, can) => can('view_analytics') },
     ],
   },
   {
     title: 'Vouchers',
     items: [
-      { to: '/vouchers/new', label: 'New Voucher', icon: '＋', visible: (_u, can) => can('create_voucher') },
-      { to: '/vouchers', label: 'All Vouchers', icon: '☰', visible: (u, can) => isVoucherAdmin(u) || can('view_all_vouchers') },
-      { to: '/my-vouchers', label: 'My Vouchers', icon: '☷', visible: (u, can) => !isVoucherAdmin(u) && !can('view_all_vouchers') },
+      { to: '/vouchers/new', label: 'New Voucher', icon: 'plus', visible: (_u, can) => can('create_voucher') },
+      { to: '/vouchers', label: 'All Vouchers', icon: 'list', visible: (u, can) => isVoucherAdmin(u) || can('view_all_vouchers') },
+      { to: '/my-vouchers', label: 'My Vouchers', icon: 'file', visible: (u, can) => !isVoucherAdmin(u) && !can('view_all_vouchers') },
     ],
   },
   {
     title: 'Vendors',
     items: [
-      { to: '/vendors', label: 'Vendors & Agreements', icon: '✎', visible: (_u, can) => can('manage_vendors') },
+      { to: '/vendors', label: 'Vendors & Agreements', icon: 'vendors', visible: (_u, can) => can('manage_vendors') },
       {
         to: '/vendor-ledger',
         label: 'Vendor Ledger',
-        icon: '📒',
+        icon: 'ledger',
         visible: (u, can) => isVoucherAdmin(u) || can('view_vendor_ledger') || can('manage_vendors'),
       },
     ],
@@ -48,23 +49,23 @@ export const NAV: NavGroup[] = [
   {
     title: 'Export & Reports',
     items: [
-      { to: '/cash-book', label: 'Cash Book', icon: '₹', visible: (_u, can) => can('cash_book') },
-      { to: '/exports', label: 'Excel Exports', icon: '⇩', visible: (_u, can) => can('export_excel') },
+      { to: '/cash-book', label: 'Cash Book', icon: 'cashbook', visible: (_u, can) => can('cash_book') },
+      { to: '/exports', label: 'Excel Exports', icon: 'download', visible: (_u, can) => can('export_excel') },
     ],
   },
   {
     title: 'Administration',
     items: [
-      { to: '/admin/users', label: 'Users & Permissions', icon: '👥', visible: (_u, can) => USER_ADMIN.some(can) },
-      { to: '/admin/colleges', label: 'Colleges', icon: '🏛', visible: (_u, can) => can('manage_colleges') },
-      { to: '/admin/audit', label: 'Audit Log', icon: '🛡', visible: (_u, can) => can('view_audit') },
+      { to: '/admin/users', label: 'Users & Permissions', icon: 'users', visible: (_u, can) => USER_ADMIN.some(can) },
+      { to: '/admin/colleges', label: 'Colleges', icon: 'building', visible: (_u, can) => can('manage_colleges') },
+      { to: '/admin/audit', label: 'Audit Log', icon: 'shield', visible: (_u, can) => can('view_audit') },
     ],
   },
   {
     title: 'Settings',
     items: [
-      { to: '/settings/printer', label: 'Printer Setup', icon: '🖨', visible: (_u, can) => can('printer_setup') || can('print_voucher') },
-      { to: '/account', label: 'My Account', icon: '⚙', visible: () => true },
+      { to: '/settings/printer', label: 'Printer Setup', icon: 'printer', visible: (_u, can) => can('printer_setup') || can('print_voucher') },
+      { to: '/account', label: 'My Account', icon: 'account', visible: () => true },
     ],
   },
 ];

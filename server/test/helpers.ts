@@ -1,8 +1,10 @@
+import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
 import { db } from '../src/db/knex.js';
 import { hashPassword } from '../src/lib/passwords.js';
 import { redis } from '../src/lib/redis.js';
+import { closeUosRedis } from '../src/uos/revocation.js';
 
 export const app = createApp();
 export const ORIGIN = 'http://app.test';
@@ -59,5 +61,27 @@ export function voucher(overrides: Record<string, unknown> = {}) {
 }
 
 export async function closeAll() {
-  await Promise.allSettled([db.destroy(), redis.quit()]);
+  await Promise.allSettled([db.destroy(), redis.quit(), closeUosRedis()]);
+}
+
+const UOS_KEY = Buffer.from(process.env.TEST_UOS_PRIVATE_KEY ?? '', 'base64').toString('utf8');
+
+/** Signs a module pass the way the UOS auth server does at /auth/select-module. */
+export function mintPass(
+  claims: Record<string, unknown> = {},
+  opts: { audience?: string; expiresIn?: number; key?: string } = {},
+): string {
+  const payload = { sub: 'uos-user-1', org_id: 'org-1', campus_id: 'campus-ap', email: 'clerk@smru.in', name: 'Clerk One', ...claims };
+  return jwt.sign(payload, opts.key ?? UOS_KEY, {
+    algorithm: 'RS256',
+    audience: opts.audience ?? 'accounts-test',
+    expiresIn: opts.expiresIn ?? 900,
+  });
+}
+
+/** Opens Accounts "from UOS": posts the pass to the handoff and returns an agent holding the session cookie. */
+export async function enterFromUos(pass: string) {
+  const agent = request.agent(app);
+  const res = await agent.post('/api/uos/handoff').set('Origin', ORIGIN).send({ pass });
+  return { agent, res };
 }

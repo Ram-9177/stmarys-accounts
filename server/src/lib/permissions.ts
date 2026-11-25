@@ -55,6 +55,11 @@ export interface PermUser {
   college?: string | null;
   college_access?: string[] | null;
   permissions?: string[] | null;
+  /**
+   * Set for UOS sessions: the colleges of the campus the module pass was issued for.
+   * Nobody, main administrators included, can open another college's books with it.
+   */
+  session_colleges?: string[];
 }
 
 export function isSuperAdmin(user: PermUser | string | null | undefined): boolean {
@@ -140,6 +145,9 @@ export const USER_ADMIN_PERMS: Permission[] = [
 /** Returns the college the user may act on, or throws 403. */
 export function allowedCollege(user: PermUser, requested?: unknown): string {
   const req = normalizeCollegeCode(requested || user.college || 'smgg');
+  if (user.session_colleges && !user.session_colleges.includes(req)) {
+    throw forbidden('Access denied. This college is not part of the campus you opened Accounts for.');
+  }
   if (isSuperAdmin(user)) return req;
   const allowed = parseCollegeAccess(user);
   if (!allowed.includes(ALL_COLLEGES_MARK) && !allowed.includes(req)) {

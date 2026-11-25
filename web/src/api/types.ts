@@ -37,11 +37,44 @@ export interface CurrentUser {
   role: string;
   baseRole: 'admin' | 'user';
   isSuperAdmin: boolean;
-  status: 'active' | 'blocked';
+  status: UserStatus;
   college: CollegeCode;
+  /** In a UOS session: only the colleges of the campus Accounts was opened for. */
   collegeAccess: CollegeCode[];
   permissions: Permission[];
   mustChangePassword: boolean;
+  /** Linked to a UOS person (signs in from the UOS launcher). */
+  uosLinked?: boolean;
+}
+
+/** 'pending': created the first time the person opened Accounts from UOS, waiting for an admin to approve. */
+export type UserStatus = 'active' | 'blocked' | 'pending';
+
+/** Public UOS settings (GET /api/uos/config). */
+export interface UosConfig {
+  enabled: boolean;
+  moduleId?: string;
+  shellUrl?: string;
+  logoutUrl?: string;
+  legacyLogin?: boolean;
+  campuses?: { campusId: string; code: string; name: string; colleges: CollegeCode[] }[];
+}
+
+/** The UOS session behind the signed-in user (from the module pass). */
+export interface UosSession {
+  moduleId: string;
+  shellUrl: string;
+  logoutUrl: string;
+  /** When the module pass expires (ISO). Accounts re-enters through the shell before then. */
+  expiresAt: string;
+  orgId: string;
+  campusId: string;
+  campusCode: string;
+  campusName: string;
+  /** Colleges this session may open. */
+  colleges: CollegeCode[];
+  /** Colleges on other campuses the user may open (switching re-enters through UOS for that campus). */
+  otherColleges: { code: CollegeCode; campusId: string }[];
 }
 
 export interface College {
@@ -184,11 +217,12 @@ export interface ManagedUser {
   role: string;
   baseRole: 'admin' | 'user';
   isSuperAdmin: boolean;
-  status: 'active' | 'blocked';
+  status: UserStatus;
   college: CollegeCode;
   collegeAccess: CollegeCode[];
   permissions: Permission[];
   mustChangePassword: boolean;
+  uosLinked?: boolean;
   lastLogin: string | null;
   createdAt: string;
   updatedAt: string;

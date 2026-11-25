@@ -14,7 +14,8 @@
     "import:d1": "tsx --env-file-if-exists=.env scripts/import-d1.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev:password": "tsx --env-file-if-exists=.env scripts/dev-set-password.ts"
+    "dev:password": "tsx --env-file-if-exists=.env scripts/dev-set-password.ts",
+    "dev:uos": "tsx --env-file-if-exists=.env scripts/dev-uos.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

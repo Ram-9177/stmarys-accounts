@@ -6,6 +6,8 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Extra fields sent with the error, e.g. `{ reauth: 'uos' }` so the web app knows to re-enter through UOS. */
+    public extra?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -26,7 +28,7 @@ export function ah<R extends Request = Request>(
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.message });
+    res.status(err.status).json({ ...err.extra, error: err.message });
     return;
   }
   if (err instanceof ZodError) {

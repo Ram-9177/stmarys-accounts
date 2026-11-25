@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
+import { createBrowserRouter, Navigate, RouterProvider, useLocation } from 'react-router';
 import type { Permission } from '@/api/types';
 import { isVoucherAdmin, useAuth } from '@/auth/AuthProvider';
 import { EmptyState, Spinner } from '@/components/ui';
@@ -11,9 +11,11 @@ import { AppShell } from '@/layout/AppShell';
 import { homePath } from '@/layout/nav';
 import { ForcedPasswordChange } from '@/pages/ChangePasswordPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { RenewedPage } from '@/pages/RenewedPage';
 
 function Protected() {
   const { status, user } = useAuth();
+  const location = useLocation();
   if (status === 'loading') {
     return (
       <div className="flex min-h-dvh items-center justify-center text-maroon-700">
@@ -21,7 +23,7 @@ function Protected() {
       </div>
     );
   }
-  if (status === 'anonymous' || !user) return <Navigate to="/login" replace />;
+  if (status === 'anonymous' || !user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   if (user.mustChangePassword) return <ForcedPasswordChange />;
   return <AppShell />;
 }
@@ -30,7 +32,7 @@ function Protected() {
 function Gate({ allow, children }: { allow: (can: (p: Permission) => boolean, voucherAdmin: boolean) => boolean; children: ReactNode }) {
   const { can, user } = useAuth();
   if (!allow(can, isVoucherAdmin(user))) {
-    return <EmptyState title="You don't have access to this page">Ask admin1 to grant the permission if you need it.</EmptyState>;
+    return <EmptyState title="You don't have access to this page">Ask your Accounts administrator to grant the permission if you need it.</EmptyState>;
   }
   return <>{children}</>;
 }
@@ -42,6 +44,7 @@ function Home() {
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/uos/renewed', element: <RenewedPage /> },
   {
     path: '/',
     element: <Protected />,

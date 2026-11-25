@@ -12,6 +12,7 @@ import { auditRouter, collegesRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { blocksRouter, headsRouter } from './routes/lookups.js';
 import { usersRouter } from './routes/users.js';
+import { uosRouter } from './routes/uos.js';
 import { vendorsRouter } from './routes/vendors.js';
 import { vouchersRouter } from './routes/vouchers.js';
 
@@ -74,6 +75,7 @@ export function createApp() {
     next();
   });
   app.use('/api/auth', authRouter);
+  app.use('/api/uos', uosRouter);
   app.use('/api/colleges', collegesRouter);
   app.use('/api/vouchers', requireAuth(), vouchersRouter);
   app.use('/api/heads', requireAuth(), headsRouter);

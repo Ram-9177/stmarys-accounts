@@ -7,6 +7,7 @@ import { isVoucherAdmin, useSession } from '@/auth/AuthProvider';
 import { Button, Card, cx, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, Spinner, Textarea } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { dmy, formatINR, todayISO, VOUCHER_TYPE_LABEL } from '@/lib/format';
+import { useUnsavedWork } from '@/uos/unsaved';
 import {
   canEditVoucher,
   changeType,
@@ -60,6 +61,9 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
   const [draft, setDraft] = useState<VoucherDraft>(() => (existing ? draftFromVoucher(existing) : emptyDraft('debit', todayISO())));
   const [errors, setErrors] = useState<DraftErrors>({});
   const [saved, setSaved] = useState<Voucher | null>(null);
+  // Changed since it was opened or last saved: UOS session renewal waits instead of reloading the page.
+  const [baseline, setBaseline] = useState(() => JSON.stringify(draft));
+  useUnsavedWork('voucher-form', !saved && JSON.stringify(draft) !== baseline);
   const [formError, setFormError] = useState('');
   const save = useSaveVoucher();
   const printer = usePrintAction();
@@ -125,7 +129,11 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
     setErrors({});
     setFormError('');
     if (existing) navigate('/vouchers/new');
-    else setDraft((d) => emptyDraft(d.type, todayISO()));
+    else {
+      const next = emptyDraft(draft.type, todayISO());
+      setDraft(next);
+      setBaseline(JSON.stringify(next));
+    }
   }
 
   if (saved) {
@@ -191,7 +199,7 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
                 disabled && 'cursor-not-allowed opacity-40',
               )}
             >
-              <p className="font-serif text-lg font-semibold">{c.title}</p>
+              <p className="text-base font-semibold">{c.title}</p>
               <p className="text-xs text-sand-600">{c.desc}</p>
             </button>
           );

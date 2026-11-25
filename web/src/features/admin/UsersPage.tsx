@@ -21,7 +21,7 @@ export function UsersPage() {
   const del = useDeleteUser();
 
   const [q, setQ] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'blocked'>('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'blocked' | 'pending'>('');
   const [collegeFilter, setCollegeFilter] = useState('');
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [creating, setCreating] = useState(false);
@@ -52,7 +52,13 @@ export function UsersPage() {
         toast(`Deleted ${user.displayName}`);
       } else {
         await setStatus.mutateAsync({ username: user.username, status: kind === 'block' ? 'blocked' : 'active' });
-        toast(kind === 'block' ? `${user.displayName} blocked and signed out` : `${user.displayName} activated`);
+        toast(
+          kind === 'block'
+            ? `${user.displayName} blocked and signed out`
+            : user.status === 'pending'
+              ? `${user.displayName} approved: they can now open Accounts from UOS`
+              : `${user.displayName} activated`,
+        );
       }
     } catch (err) {
       toast(errorMessage(err), 'error');
@@ -74,6 +80,7 @@ export function UsersPage() {
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="w-40" aria-label="Status filter">
           <option value="">All statuses</option>
           <option value="active">Active</option>
+          <option value="pending">Waiting for approval</option>
           <option value="blocked">Blocked</option>
         </Select>
         <Select value={collegeFilter} onChange={(e) => setCollegeFilter(e.target.value)} className="w-64" aria-label="College filter">
@@ -134,7 +141,14 @@ export function UsersPage() {
                     </Badge>
                   </td>
                   <td>
-                    <Badge tone={u.status === 'active' ? 'success' : 'danger'}>{u.status}</Badge>
+                    <Badge tone={u.status === 'active' ? 'success' : u.status === 'pending' ? 'gold' : 'danger'}>
+                      {u.status === 'pending' ? 'waiting for approval' : u.status}
+                    </Badge>
+                    {u.uosLinked && (
+                      <Badge tone="neutral" className="ml-1" title="Signs in from the UOS launcher">
+                        UOS
+                      </Badge>
+                    )}
                     {u.mustChangePassword && (
                       <Badge tone="gold" className="ml-1">
                         must change pw
@@ -162,7 +176,7 @@ export function UsersPage() {
                       {canBlock && manageable && !u.isSuperAdmin && !self && (
                         <>
                           <Button size="sm" variant={u.status === 'active' ? 'danger' : 'primary'} onClick={() => setPending({ kind: u.status === 'active' ? 'block' : 'unblock', user: u })}>
-                            {u.status === 'active' ? 'Block' : 'Activate'}
+                            {u.status === 'active' ? 'Block' : u.status === 'pending' ? 'Approve' : 'Activate'}
                           </Button>
                           <Button size="sm" variant="danger" onClick={() => setPending({ kind: 'delete', user: u })}>
                             Delete
@@ -198,8 +212,18 @@ export function UsersPage() {
       <ConfirmDialog
         open={!!pending}
         danger={pending?.kind !== 'unblock'}
-        title={pending?.kind === 'delete' ? 'Delete user?' : pending?.kind === 'block' ? 'Block user?' : 'Activate user?'}
-        confirmLabel={pending?.kind === 'delete' ? 'Delete' : pending?.kind === 'block' ? 'Block' : 'Activate'}
+        title={
+          pending?.kind === 'delete'
+            ? 'Delete user?'
+            : pending?.kind === 'block'
+              ? 'Block user?'
+              : pending?.user.status === 'pending'
+                ? 'Approve user?'
+                : 'Activate user?'
+        }
+        confirmLabel={
+          pending?.kind === 'delete' ? 'Delete' : pending?.kind === 'block' ? 'Block' : pending?.user.status === 'pending' ? 'Approve' : 'Activate'
+        }
         loading={del.isPending || setStatus.isPending}
         message={
           pending?.kind === 'delete' ? (
@@ -209,6 +233,12 @@ export function UsersPage() {
           ) : pending?.kind === 'block' ? (
             <>
               <b>{pending?.user.displayName}</b> will be signed out on every device and cannot sign in until activated.
+            </>
+          ) : pending?.user.status === 'pending' ? (
+            <>
+              <b>{pending.user.fullName || pending.user.displayName}</b> ({pending.user.email || 'no email'}) opened Accounts from UOS. Approving lets
+              them in with {pending.user.permissions.length} permissions on {pending.user.collegeAccess.map((c) => c.toUpperCase()).join(', ')}.
+              Use <b>Edit</b> first to change what they can do.
             </>
           ) : (
             <>

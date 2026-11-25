@@ -1,6 +1,7 @@
 /**
  * Small in-house component kit (no Radix/shadcn). Every page builds on these so
- * the look stays consistent: maroon primary, gold focus ring, sand neutrals.
+ * the look stays consistent with the UOS shell: white surfaces, neutral greys,
+ * maroon accent (tokens in index.css).
  */
 import {
   forwardRef,
@@ -22,8 +23,8 @@ export function cx(...c: (string | false | null | undefined)[]) {
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'gold';
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-maroon-700 text-white hover:bg-maroon-800 disabled:bg-maroon-700/50',
-  secondary: 'bg-white text-ink border border-sand-200 hover:bg-sand-100 disabled:opacity-50',
+  primary: 'bg-maroon-700 text-white shadow-sm hover:bg-maroon-800 disabled:bg-maroon-700/50',
+  secondary: 'bg-white text-ink border border-sand-200 shadow-sm hover:bg-sand-50 disabled:opacity-50',
   ghost: 'text-sand-800 hover:bg-sand-100 disabled:opacity-50',
   danger: 'bg-white text-debit border border-debit/30 hover:bg-red-50 disabled:opacity-50',
   gold: 'bg-gold-500 text-white hover:bg-gold-400 disabled:opacity-50',
@@ -71,7 +72,17 @@ export function Spinner({ className }: { className?: string }) {
 // ---------- Form fields ----------
 
 const control =
-  'w-full rounded-lg border border-sand-200 bg-white px-3 text-sm text-ink placeholder:text-sand-400 focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/25 disabled:bg-sand-100 disabled:text-sand-600';
+  'rounded-lg border border-sand-200 bg-white px-3 text-sm text-ink shadow-sm placeholder:text-sand-400 focus:border-maroon-500 focus:outline-none focus:ring-2 focus:ring-maroon-500/15 disabled:bg-sand-100 disabled:text-sand-600';
+
+/**
+ * Default full width / standard height, unless the caller sets its own.
+ * (In the generated CSS w-full and h-10 come after w-40, h-9 etc., so passing
+ * both would always give full width.)
+ */
+function sized(className: string | undefined, height: string): string {
+  const c = className ?? '';
+  return cx(/(?:^|\s)w-/.test(c) ? '' : 'w-full', height && !/(?:^|\s)h-/.test(c) ? height : '');
+}
 
 export function Field({
   label,
@@ -93,7 +104,7 @@ export function Field({
   return (
     <div className={cx('flex flex-col gap-1', className)}>
       {label && (
-        <label htmlFor={htmlFor} className="text-xs font-semibold uppercase tracking-wide text-sand-600">
+        <label htmlFor={htmlFor} className="text-xs font-medium text-sand-600">
           {label}
           {required && <span className="text-debit"> *</span>}
         </label>
@@ -105,14 +116,14 @@ export function Field({
 }
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
-  return <input ref={ref} className={cx(control, 'h-10', className)} {...rest} />;
+  return <input ref={ref} className={cx(control, sized(className, 'h-10'), className)} {...rest} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
   { className, rows = 3, ...rest },
   ref,
 ) {
-  return <textarea ref={ref} rows={rows} className={cx(control, 'py-2', className)} {...rest} />;
+  return <textarea ref={ref} rows={rows} className={cx(control, sized(className, ''), 'py-2', className)} {...rest} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
@@ -120,7 +131,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   ref,
 ) {
   return (
-    <select ref={ref} className={cx(control, 'h-10 pr-8', className)} {...rest}>
+    <select ref={ref} className={cx(control, sized(className, 'h-10'), 'pr-8', className)} {...rest}>
       {children}
     </select>
   );
@@ -140,10 +151,10 @@ export function Checkbox({ label, className, ...rest }: InputHTMLAttributes<HTML
 
 export function Card({ children, className, title, actions }: { children: ReactNode; className?: string; title?: ReactNode; actions?: ReactNode }) {
   return (
-    <section className={cx('rounded-xl border border-sand-100 bg-white shadow-card', className)}>
+    <section className={cx('rounded-xl border border-sand-200 bg-white shadow-card', className)}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-sand-100 px-4 py-3">
-          {title && <h3 className="text-lg font-semibold text-maroon-800">{title}</h3>}
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-sand-200 px-4 py-3">
+          {title && <h3 className="text-base font-semibold text-ink">{title}</h3>}
           {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
@@ -156,7 +167,7 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-3xl font-semibold text-maroon-800">{title}</h1>
+        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-sand-600">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -167,16 +178,26 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 export function StatCard({ label, value, hint, tone = 'maroon' }: { label: string; value: ReactNode; hint?: ReactNode; tone?: 'maroon' | 'debit' | 'credit' | 'onaccount' | 'gold' }) {
   const bar = { maroon: 'bg-maroon-700', debit: 'bg-debit', credit: 'bg-credit', onaccount: 'bg-onaccount', gold: 'bg-gold-500' }[tone];
   return (
-    <div className="relative overflow-hidden rounded-xl border border-sand-100 bg-white p-4 shadow-card">
-      <span className={cx('absolute inset-y-0 left-0 w-1', bar)} />
-      <p className="text-xs font-semibold uppercase tracking-wide text-sand-600">{label}</p>
+    <div className="relative overflow-hidden rounded-xl border border-sand-200 bg-white p-4 shadow-card">
+      <span className={cx('absolute inset-x-0 top-0 h-0.5', bar)} />
+      <p className="text-xs font-medium text-sand-600">{label}</p>
       <p className="mt-1 break-words text-xl font-semibold leading-tight tabular 2xl:text-2xl">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-sand-600">{hint}</p>}
     </div>
   );
 }
 
-export function Badge({ children, tone = 'neutral', className }: { children: ReactNode; tone?: 'neutral' | 'debit' | 'credit' | 'onaccount' | 'gold' | 'maroon' | 'success' | 'danger'; className?: string }) {
+export function Badge({
+  children,
+  tone = 'neutral',
+  className,
+  title,
+}: {
+  children: ReactNode;
+  tone?: 'neutral' | 'debit' | 'credit' | 'onaccount' | 'gold' | 'maroon' | 'success' | 'danger';
+  className?: string;
+  title?: string;
+}) {
   const tones = {
     neutral: 'bg-sand-100 text-sand-800',
     debit: 'bg-red-50 text-debit',
@@ -187,7 +208,11 @@ export function Badge({ children, tone = 'neutral', className }: { children: Rea
     success: 'bg-green-50 text-credit',
     danger: 'bg-red-50 text-debit',
   };
-  return <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', tones[tone], className)}>{children}</span>;
+  return (
+    <span title={title} className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', tones[tone], className)}>
+      {children}
+    </span>
+  );
 }
 
 export function EmptyState({ title, children }: { title: ReactNode; children?: ReactNode }) {
@@ -211,8 +236,8 @@ export function ErrorBox({ children }: { children: ReactNode }) {
 /** Horizontally scrollable table wrapper with consistent cell styles (use `th`/`td` normally). */
 export function Table({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cx('overflow-x-auto rounded-xl border border-sand-100 bg-white', className)}>
-      <table className="w-full min-w-max text-left text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:bg-sand-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-sand-600 [&_tbody_tr]:border-t [&_tbody_tr]:border-sand-100 [&_tbody_tr:hover]:bg-sand-50/60">
+    <div className={cx('overflow-x-auto rounded-xl border border-sand-200 bg-white shadow-card', className)}>
+      <table className="w-full min-w-max text-left text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:border-b [&_th]:border-sand-200 [&_th]:bg-sand-50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-medium [&_th]:text-sand-600 [&_tbody_tr]:border-t [&_tbody_tr]:border-sand-100 [&_tbody_tr:first-child]:border-t-0 [&_tbody_tr:hover]:bg-sand-50/70">
         {children}
       </table>
     </div>
@@ -256,14 +281,14 @@ export function Modal({
     >
       {open && (
         <div className="flex max-h-[90vh] flex-col">
-          <header className="flex items-center justify-between gap-4 border-b border-sand-100 px-5 py-3">
-            <h2 className="text-xl font-semibold text-maroon-800">{title}</h2>
+          <header className="flex items-center justify-between gap-4 border-b border-sand-200 px-5 py-3">
+            <h2 className="text-lg font-semibold text-ink">{title}</h2>
             <button type="button" onClick={onClose} className="rounded p-1 text-sand-600 hover:bg-sand-100" aria-label="Close">
               ✕
             </button>
           </header>
           <div className="overflow-y-auto px-5 py-4">{children}</div>
-          {footer && <footer className="flex flex-wrap justify-end gap-2 border-t border-sand-100 px-5 py-3">{footer}</footer>}
+          {footer && <footer className="flex flex-wrap justify-end gap-2 border-t border-sand-200 bg-sand-50/60 px-5 py-3">{footer}</footer>}
         </div>
       )}
     </dialog>

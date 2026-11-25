@@ -1,7 +1,16 @@
 @import 'tailwindcss';
 
-/* St. Mary's brand: maroon + gold on warm neutrals (carried over from the legacy UI). */
+/*
+ * UOS module look: neutral platform chrome (white surfaces, cool greys, Inter)
+ * with St. Mary's maroon as the module accent.
+ *
+ * Every colour the screens use comes from these tokens, so matching the UOS
+ * shell (uos-auth-ui) exactly is a change to this block only. Printed
+ * vouchers, cash books and agreements use their own fixed styles (see
+ * features/vouchers/print.ts) and do not change.
+ */
 @theme {
+  /* Accent (St. Mary's maroon) */
   --color-maroon-50: #fbf2f4;
   --color-maroon-100: #f3dde2;
   --color-maroon-500: #9e2b40;
@@ -10,21 +19,24 @@
   --color-maroon-800: #5a1220;
   --color-gold-400: #d4ac0d;
   --color-gold-500: #b8960c;
-  --color-sand-50: #f9f7f3;
-  --color-sand-100: #ede9e2;
-  --color-sand-200: #d4cfc4;
-  --color-sand-400: #9a9488;
-  --color-sand-600: #6b6560;
-  --color-sand-800: #2c2a26;
-  --color-ink: #1a1816;
+
+  /* Neutrals: the platform grey scale (kept under the old "sand" names the pages use). */
+  --color-sand-50: #f8fafc;
+  --color-sand-100: #eef2f6;
+  --color-sand-200: #e2e8f0;
+  --color-sand-400: #94a3b8;
+  --color-sand-600: #526075;
+  --color-sand-800: #1e293b;
+  --color-ink: #0f172a;
 
   --color-debit: #b42318;
   --color-credit: #067647;
   --color-onaccount: #b54708;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Only printed documents use the serif face now. */
   --font-serif: 'EB Garamond', Georgia, serif;
-  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.07);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 @layer base {
@@ -38,10 +50,10 @@
   h1,
   h2,
   h3 {
-    @apply font-serif;
+    @apply font-sans tracking-tight;
   }
   :focus-visible {
-    outline: 2px solid var(--color-gold-500);
+    outline: 2px solid var(--color-maroon-500);
     outline-offset: 2px;
   }
   input[type='number']::-webkit-inner-spin-button {

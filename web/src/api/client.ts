@@ -3,6 +3,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** The parsed error body, e.g. { error, reauth: 'uos' }. */
+    public data?: unknown,
   ) {
     super(message);
   }
@@ -12,10 +14,21 @@ type Json = Record<string, unknown> | unknown[];
 
 let refreshing: Promise<boolean> | null = null;
 let onSessionLost: (() => void) | null = null;
+let onUosReauth: (() => void) | null = null;
 
 /** Called once when the session cannot be refreshed (the auth provider sends the user to sign in). */
 export function setSessionLostHandler(fn: (() => void) | null) {
   onSessionLost = fn;
+}
+
+/** Called when the API says the UOS module pass ended: re-enter through the UOS shell. */
+export function setUosReauthHandler(fn: (() => void) | null) {
+  onUosReauth = fn;
+}
+
+/** For a session that came from UOS, any lost session means re-entering through UOS. */
+export function triggerUosReauth() {
+  onUosReauth?.();
 }
 
 async function refreshSession(): Promise<boolean> {
@@ -55,10 +68,19 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 
   let res = await doFetch();
   if (res.status === 401 && !NO_REFRESH.includes(url.pathname)) {
-    if (await refreshSession()) {
-      res = await doFetch();
+    const body = (await res
+      .clone()
+      .json()
+      .catch(() => null)) as { reauth?: string } | null;
+    if (body?.reauth === 'uos') {
+      // UOS sessions have no refresh token: a new pass comes from the shell.
+      if (!url.pathname.startsWith('/api/uos/')) onUosReauth?.();
+    } else {
+      if (await refreshSession()) {
+        res = await doFetch();
+      }
+      if (res.status === 401) onSessionLost?.();
     }
-    if (res.status === 401) onSessionLost?.();
   }
   if (res.status === 304) return undefined as T;
   const text = await res.text();
@@ -70,7 +92,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   }
   if (!res.ok) {
     const msg = (data as { error?: string } | undefined)?.error ?? `Request failed (${res.status})`;
-    throw new ApiError(res.status, msg);
+    throw new ApiError(res.status, msg, data);
   }
   return data as T;
 }

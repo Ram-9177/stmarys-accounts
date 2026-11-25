@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import { config } from '../config.js';
+import { config, legacyLoginEnabled } from '../config.js';
 import { db } from '../db/knex.js';
 import { audit } from '../lib/audit.js';
 import { ah, forbidden, HttpError } from '../lib/errors.js';
@@ -21,17 +21,30 @@ import {
 import { findUser, publicUser, type UserRow } from '../lib/users.js';
 import { clientIp, requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { microsoftSso } from '../lib/sso.js';
+import { sessionInfo } from '../uos/identity.js';
+import { clearUosCookie } from '../uos/session.js';
 
 export const authRouter = Router();
 
 const LOGIN_WINDOW = 15 * 60;
 const MAIN_ADMIN_ALIASES = ['admin', 'admin1', 'admin_stmw', 'admin_smhyd'];
 
+/** With UOS sign-in only, password sign-in, first-run setup and Microsoft sign-in are switched off. */
+function requireLegacyLogin() {
+  if (!legacyLoginEnabled()) throw forbidden('Sign in through UOS: open Accounts from the UOS launcher.');
+}
+
 authRouter.get(
   '/options',
   ah(async (_req, res) => {
-    const row = await db('users').count<{ c: string }[]>({ c: '*' }).first();
-    res.json({ needsBootstrap: Number(row?.c ?? 0) === 0, ssoEnabled: config.ssoEnabled });
+    const legacy = legacyLoginEnabled();
+    const row = legacy ? await db('users').count<{ c: string }[]>({ c: '*' }).first() : null;
+    res.json({
+      needsBootstrap: legacy && Number(row?.c ?? 0) === 0,
+      ssoEnabled: legacy && config.ssoEnabled,
+      legacyLogin: legacy,
+      uosEnabled: config.uos.enabled,
+    });
   }),
 );
 
@@ -44,6 +57,7 @@ const LoginBody = z.object({
 authRouter.post(
   '/login',
   ah(async (req, res) => {
+    requireLegacyLogin();
     const body = LoginBody.parse(req.body);
     const ip = clientIp(req);
     const requested = norm(body.username);
@@ -83,6 +97,7 @@ authRouter.post(
       Object.assign(patch, await hashPassword(body.password));
     }
     await db('users').where({ username: user.username }).update(patch);
+    clearUosCookie(res);
     await startSession(res, user.username, user.token_version);
     await audit(user.username, 'login', 'user', user.username, 'Login successful', ip);
     res.json({ user: await publicUser({ ...user, ...patch } as UserRow) });
@@ -92,6 +107,10 @@ authRouter.post(
 authRouter.post(
   '/refresh',
   ah(async (req, res) => {
+    if (!legacyLoginEnabled()) {
+      clearAuthCookies(res);
+      throw new HttpError(401, 'Open Accounts from UOS to sign in.', { reauth: 'uos' });
+    }
     const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
     const data = token ? await consumeRefreshToken(token) : null;
     const user = data ? await findUser(data.username) : undefined;
@@ -110,6 +129,7 @@ authRouter.post(
     const token = req.cookies?.[REFRESH_COOKIE] as string | undefined;
     if (token) await revokeRefreshToken(token);
     clearAuthCookies(res);
+    clearUosCookie(res);
     res.json({ ok: true });
   }),
 );
@@ -118,7 +138,7 @@ authRouter.get(
   '/me',
   requireAuth({ allowPasswordChange: true }),
   ah<AuthedRequest>(async (req, res) => {
-    res.json({ user: await publicUser(req.user) });
+    res.json({ user: await publicUser(req.user), uos: req.uos ? sessionInfo(req.uos) : null });
   }),
 );
 
@@ -129,6 +149,7 @@ authRouter.post(
   requireAuth({ allowPasswordChange: true }),
   ah<AuthedRequest>(async (req, res) => {
     const user = req.user;
+    if (req.uos) throw new HttpError(400, 'You signed in through UOS: change your password in UOS.');
     await rateLimit(`pwchange:${user.username}`, 10, 3600);
     const password = assertPassword(ChangePasswordBody.parse(req.body).password);
     if (await verifyPassword(password, user)) throw new HttpError(400, 'New password must be different from the current password.');
@@ -152,6 +173,7 @@ const BootstrapBody = z.object({ password: z.string(), college: z.string().optio
 authRouter.post(
   '/bootstrap',
   ah(async (req, res) => {
+    requireLegacyLogin();
     const ip = clientIp(req);
     await rateLimit(`bootstrap:${ip}`, 5, 3600);
     const body = BootstrapBody.parse(req.body);
@@ -183,7 +205,7 @@ const SSO_COOKIE = 'smv_sso';
 authRouter.get(
   '/sso/microsoft',
   ah(async (req, res) => {
-    if (!config.ssoEnabled) throw new HttpError(404, 'Microsoft sign-in is not configured.');
+    if (!config.ssoEnabled || !legacyLoginEnabled()) throw new HttpError(404, 'Microsoft sign-in is not configured.');
     const college = normalizeCollegeCode(req.query.college) || 'smgg';
     const { url, state } = await microsoftSso.start(college);
     const handle = randomBytes(24).toString('base64url');
@@ -203,7 +225,7 @@ authRouter.get(
   '/sso/microsoft/callback',
   ah(async (req, res) => {
     const fail = (msg: string) => res.redirect(`${config.APP_ORIGIN}/login?error=${encodeURIComponent(msg)}`);
-    if (!config.ssoEnabled) return fail('Microsoft sign-in is not configured.');
+    if (!config.ssoEnabled || !legacyLoginEnabled()) return fail('Microsoft sign-in is not configured.');
     const handle = req.cookies?.[SSO_COOKIE] as string | undefined;
     res.clearCookie(SSO_COOKIE, { path: '/api/auth/sso' });
     const raw = handle ? await redis.getdel(`sso:${handle}`) : null;
@@ -223,6 +245,7 @@ authRouter.get(
     }
     if (user.status !== 'active') return fail('User is blocked. Contact admin1.');
     await db('users').where({ username: user.username }).update({ last_login: new Date() });
+    clearUosCookie(res);
     await startSession(res, user.username, user.token_version);
     await audit(user.username, 'login', 'user', user.username, 'Microsoft SSO login', clientIp(req));
     res.redirect(`${config.APP_ORIGIN}/?college=${encodeURIComponent(college)}`);

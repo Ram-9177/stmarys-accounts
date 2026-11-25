@@ -10,6 +10,10 @@ v2 replaces the Cloudflare Pages + D1 version (kept for reference in [`legacy/`]
 | Web (`web/`) | React 19 + TypeScript, Vite, Tailwind CSS 4, TanStack Query, React Router 7, in-house component kit, Vitest + Testing Library |
 | Deploy (`infra/`, `.github/`) | GitHub Actions: test → Docker image → Amazon ECR → EC2 via Systems Manager. CloudFormation stack, Caddy HTTPS, nightly `pg_dump` to S3. See [infra/AWS-DEPLOY.md](infra/AWS-DEPLOY.md) |
 
+## UOS platform
+
+On this branch Accounts is also a **UOS module**: staff open it from the UOS launcher with their university sign-in (module pass), each session is limited to the campus picked in UOS, and the screens use the UOS module layout. Password sign-in can stay on during the move (`UOS_LEGACY_LOGIN`). Setup, settings, rollout and open questions: [docs/UOS_INTEGRATION.md](docs/UOS_INTEGRATION.md).
+
 ## Local development
 
 Requirements: Node 20+, PostgreSQL 16 and Redis 7 (Homebrew services, or `docker compose up -d`).

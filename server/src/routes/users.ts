@@ -145,7 +145,12 @@ usersRouter.patch(
       await assertEmailFree(body.email, username);
       await db('users')
         .where({ username })
-        .update({ email: body.email || null, full_name: clean(body.fullName, 200) || target.full_name, updated_at: new Date() });
+        .update({
+          email: body.email || null,
+          full_name: clean(body.fullName, 200) || target.full_name,
+          ...uosUnlinkIfEmailChanged(target, body.email),
+          updated_at: new Date(),
+        });
       res.json({ ok: true });
       return;
     }
@@ -164,6 +169,7 @@ usersRouter.patch(
       custom_role: customRole || null,
       full_name: clean(body.fullName, 200),
       email: body.email || null,
+      ...uosUnlinkIfEmailChanged(target, body.email),
       college,
       college_access: collegeAccess,
       permissions,
@@ -173,6 +179,16 @@ usersRouter.patch(
     res.json({ ok: true });
   }),
 );
+
+/**
+ * The UOS link follows the email: when an admin changes a user's email, the
+ * user is unlinked and re-linked the next time the person with the new email
+ * opens Accounts from UOS.
+ */
+function uosUnlinkIfEmailChanged(target: UserRow, email: string) {
+  const before = (target.email ?? '').toLowerCase();
+  return before !== (email || '').toLowerCase() && target.uos_user_id ? { uos_user_id: null, uos_linked_at: null } : {};
+}
 
 const StatusBody = z.object({ status: z.enum(['active', 'blocked']) });
 

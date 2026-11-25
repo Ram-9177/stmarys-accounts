@@ -17,7 +17,8 @@ export interface UserRow {
   password_salt: string | null;
   role: 'admin' | 'user';
   custom_role: string | null;
-  status: 'active' | 'blocked';
+  /** 'pending': created when the person first opened Accounts from UOS; waiting for an admin to approve. */
+  status: 'active' | 'blocked' | 'pending';
   college: string;
   college_access: string[];
   permissions: string[] | null;
@@ -27,6 +28,12 @@ export interface UserRow {
   last_login: Date | null;
   created_at: Date;
   updated_at: Date;
+  /** The person's id on the UOS auth server, once they have opened Accounts from UOS. */
+  uos_user_id?: string | null;
+  uos_org_id?: string | null;
+  uos_linked_at?: Date | null;
+  /** UOS sessions only (not a column): the colleges of the campus the module pass is for. */
+  session_colleges?: string[];
 }
 
 export async function findUser(username: string): Promise<UserRow | undefined> {
@@ -52,9 +59,10 @@ export async function publicUser(u: UserRow) {
     isSuperAdmin: main,
     status: u.status,
     college: normalizeCollegeCode(u.college),
-    collegeAccess: main ? await allCollegeCodes() : parseCollegeAccess(u),
+    collegeAccess: u.session_colleges ?? (main ? await allCollegeCodes() : parseCollegeAccess(u)),
     permissions: main ? [...PERMISSIONS] : voucherScopedPermissions(u.role, parsePerms(u)),
-    mustChangePassword: u.must_change_password,
+    mustChangePassword: u.session_colleges ? false : u.must_change_password,
+    uosLinked: Boolean(u.uos_user_id),
   };
 }
 export type PublicUser = Awaited<ReturnType<typeof publicUser>>;
@@ -74,6 +82,7 @@ export function userListRow(u: UserRow) {
     collegeAccess: parseCollegeAccess(u),
     permissions: voucherScopedPermissions(u.role, parsePerms(u)),
     mustChangePassword: u.must_change_password,
+    uosLinked: Boolean(u.uos_user_id),
     lastLogin: u.last_login,
     createdAt: u.created_at,
     updatedAt: u.updated_at,

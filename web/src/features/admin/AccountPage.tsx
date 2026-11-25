@@ -6,7 +6,7 @@ import { ChangePasswordForm } from '@/pages/ChangePasswordPage';
 import { PERMISSION_GROUPS, ROLE_LABEL, roleOf } from './permissions';
 
 export function AccountPage() {
-  const { user } = useSession();
+  const { user, uos } = useSession();
   const colleges = useColleges();
   const name = (code: string) => colleges.data?.find((c) => c.code === code)?.name ?? code.toUpperCase();
   const perms = new Set(user.permissions);
@@ -55,9 +55,20 @@ export function AccountPage() {
             </div>
           </Card>
         </div>
-        <Card title="Change password">
-          <ChangePasswordForm />
-        </Card>
+        {uos ? (
+          <Card title="Sign-in">
+            <p className="text-sm text-sand-600">
+              You signed in through UOS ({uos.campusName || uos.campusCode}). Your password and sign-in are managed in UOS.
+            </p>
+            <a href={uos.shellUrl} className="mt-3 inline-block text-sm font-medium text-maroon-700 hover:underline">
+              Open UOS →
+            </a>
+          </Card>
+        ) : (
+          <Card title="Change password">
+            <ChangePasswordForm />
+          </Card>
+        )}
       </div>
     </>
   );

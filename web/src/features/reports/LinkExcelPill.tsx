@@ -206,8 +206,10 @@ export function LinkExcelPill() {
         onClick={onClick}
         title={title}
         className={cx(
-          'max-w-56 truncate rounded-full border px-3 py-1 text-xs',
-          state === 'unlinked' ? 'border-white/30 hover:bg-white/10' : 'border-gold-400 bg-gold-500/20',
+          'h-8 max-w-56 truncate rounded-lg border px-3 text-xs font-medium',
+          state === 'unlinked'
+            ? 'border-sand-200 bg-white text-sand-800 hover:bg-sand-50'
+            : 'border-gold-400 bg-gold-400/15 text-sand-800',
           state === 'needs-grant' && 'animate-pulse',
         )}
       >

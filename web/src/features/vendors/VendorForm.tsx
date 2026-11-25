@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useUnsavedWork } from '@/uos/unsaved';
 import { errorMessage } from '@/api/client';
 import { useSaveVendor, vendorFileUrl } from '@/api/hooks';
 import type { CollegeCode, Vendor, VendorFile, VendorFileInput, VendorInput } from '@/api/types';
@@ -143,6 +144,9 @@ export function VendorForm({
   const [errors, setErrors] = useState<Partial<Record<keyof VendorFormValues, string>>>({});
   const [warnings, setWarnings] = useState<string[]>([]);
   const [formError, setFormError] = useState('');
+  // Typed into since the last save: UOS session renewal waits instead of reloading the page.
+  const [touched, setTouched] = useState(false);
+  useUnsavedWork('vendor-form', touched);
   const wordsTouched = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -225,6 +229,7 @@ export function VendorForm({
     try {
       const r = await save.mutateAsync({ college, vendor: payload, create: isNew });
       toast(isNew ? `Vendor ${payload.vendorId} & vendor ledger created.` : `Vendor ${payload.vendorId} updated.`);
+      setTouched(false);
       onSaved(r.vendor, isNew);
       if (isNew) {
         setValues(emptyValues(nextVendorId([...vendors, { vendorId: payload.vendorId } as Vendor])));
@@ -256,7 +261,7 @@ export function VendorForm({
   );
 
   return (
-    <form ref={formRef} onSubmit={submit} noValidate>
+    <form ref={formRef} onSubmit={submit} noValidate onInput={() => setTouched(true)} onChange={() => setTouched(true)}>
       <Card
         title={editing ? `Edit Vendor ${editing.vendorId}` : 'New Vendor & Agreement'}
         actions={
