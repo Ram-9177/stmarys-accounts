@@ -17,6 +17,8 @@ export const PERMISSIONS = [
   'account_heads',
   'view_vendor_ledger',
   'manage_vendors',
+  'manage_advances',
+  'approve_advances',
   'create_users',
   'reset_passwords',
   'block_users',
@@ -29,11 +31,11 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 const DEFAULT_ADMIN_PERMS =
-  'view_dashboard,view_analytics,create_voucher,view_own_vouchers,view_all_vouchers,edit_voucher,print_voucher,export_excel,cash_book,link_excel,printer_setup,account_heads,view_vendor_ledger,manage_vendors,create_users,reset_passwords,block_users';
-const DEFAULT_USER_PERMS = 'create_voucher,view_own_vouchers,print_voucher,view_vendor_ledger';
+  'view_dashboard,view_analytics,create_voucher,view_own_vouchers,view_all_vouchers,edit_voucher,print_voucher,export_excel,cash_book,link_excel,printer_setup,account_heads,view_vendor_ledger,manage_vendors,manage_advances,create_users,reset_passwords,block_users';
+const DEFAULT_USER_PERMS = 'create_voucher,view_own_vouchers,print_voucher,view_vendor_ledger,manage_advances';
 /** Defaults applied when an admin creates a user without choosing permissions (legacy createUser). */
 export const NEW_ADMIN_PERMS =
-  'view_dashboard,view_analytics,create_voucher,view_own_vouchers,view_all_vouchers,edit_voucher,print_voucher,export_excel,cash_book,link_excel,printer_setup,account_heads,create_users,reset_passwords,block_users';
+  'view_dashboard,view_analytics,create_voucher,view_own_vouchers,view_all_vouchers,edit_voucher,print_voucher,export_excel,cash_book,link_excel,printer_setup,account_heads,manage_advances,create_users,reset_passwords,block_users';
 export const NEW_USER_PERMS = 'create_voucher,view_own_vouchers,print_voucher';
 
 /** Main administrators: one per campus plus 'baji'. They hold every permission and every college. */

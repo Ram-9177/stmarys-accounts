@@ -1,42 +1,218 @@
 @import 'tailwindcss';
 
 /*
- * UOS module look: neutral platform chrome (white surfaces, cool greys, Inter)
- * with St. Mary's maroon as the module accent.
+ * The UOS shell's design tokens (uos-auth-ui), copied value for value from the
+ * shell's own stylesheet so Accounts looks like the rest of UOS: the same
+ * surfaces, ink scale, accent, status colours, shadows and radii, in light
+ * and dark. Pages use the Tailwind names below; nothing else holds a colour.
  *
- * Every colour the screens use comes from these tokens, so matching the UOS
- * shell (uos-auth-ui) exactly is a change to this block only. Printed
- * vouchers, cash books and agreements use their own fixed styles (see
- * features/vouchers/print.ts) and do not change.
+ * Printed vouchers, cash books and agreements keep their own fixed styles
+ * (features/vouchers/print.ts, features/vendors/documents.ts) and do not
+ * change with the theme.
  */
-@theme {
-  /* Accent (St. Mary's maroon) */
-  --color-maroon-50: #fbf2f4;
-  --color-maroon-100: #f3dde2;
-  --color-maroon-500: #9e2b40;
-  --color-maroon-600: #8b2535;
-  --color-maroon-700: #7b1d2e;
-  --color-maroon-800: #5a1220;
-  --color-gold-400: #d4ac0d;
-  --color-gold-500: #b8960c;
+:root {
+  color-scheme: light;
+  --bg: #edf1f6;
+  --bg-2: #e5ebf3;
+  --bg-hi: #fff;
+  --surface-1: #fff;
+  --surface-2: #f4f7fb;
+  --surface-3: #e8eef6;
+  --border-hair: #dce3ec;
+  --border: #d3dce7;
+  --border-strong: #c3cfde;
+  --fg: #0f172a;
+  --ink: #0f172a;
+  --ink-80: #1e293b;
+  --ink-60: #334155;
+  --ink-50: #414b5a;
+  --ink-40: #5a6675;
+  --ink-30: #8794a5;
+  --muted: #414b5a;
+  --accent: #095078;
+  --accent-fg: #fff;
+  --accent-tint: #e0f2fe;
+  --accent-soft: #0950781f;
+  --accent-block: #0c4a6e;
+  --accent-block-fg: #f0f9ff;
+  --success: #14532d;
+  --success-tint: #dcfce7;
+  --warning: #78350f;
+  --warning-tint: #fef3c7;
+  --danger: #7f1d1d;
+  --danger-tint: #fee2e2;
+  --danger-fg: #fff;
+  --focus-ring: #095078;
+  --btn-secondary-bg: var(--surface-1);
+  --btn-secondary-hover: var(--surface-2);
+  --btn-secondary-edge: var(--border);
+  --elev-1: 0 1px 2px #0f172a0f, 0 0 0 1px #0f172a0a;
+  --elev-2: 0 1px 2px #0f172a0d, 0 8px 24px -12px #0f172a24, 0 0 0 1px #0f172a0a;
+  --elev-3: 0 24px 60px -24px #0f172a38, 0 8px 24px -12px #0f172a1a, 0 0 0 1px #0f172a0d;
+  --glass-chrome: #ffffffc7;
+  --ambient-accent: 0.1;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-2xl: 28px;
+  --r-pill: 999px;
+  --touch: 48px;
+}
 
-  /* Neutrals: the platform grey scale (kept under the old "sand" names the pages use). */
-  --color-sand-50: #f8fafc;
-  --color-sand-100: #eef2f6;
-  --color-sand-200: #e2e8f0;
-  --color-sand-400: #94a3b8;
-  --color-sand-600: #526075;
-  --color-sand-800: #1e293b;
-  --color-ink: #0f172a;
+/* Dark: chosen in the theme menu, or "System" on a device set to dark (as in the shell). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b1120;
+  --bg-2: #070c17;
+  --bg-hi: #131b2c;
+  --surface-1: #131b2c;
+  --surface-2: #1b2438;
+  --surface-3: #1f2940;
+  --border-hair: #24304a;
+  --border: #2c3a57;
+  --border-strong: #3a4a6b;
+  --fg: #f1f5f9;
+  --ink: #f1f5f9;
+  --ink-80: #dbe3ed;
+  --ink-60: #bfcad9;
+  --ink-50: #aebbcc;
+  --ink-40: #8593a8;
+  --ink-30: #64748b;
+  --muted: #aebbcc;
+  --accent: #38bdf8;
+  --accent-fg: #06131f;
+  --accent-tint: #10293a;
+  --accent-soft: #38bdf829;
+  --accent-block: #0c2536;
+  --accent-block-fg: #bae6fd;
+  --success: #4ade80;
+  --success-tint: #0f2a18;
+  --warning: #fbbf24;
+  --warning-tint: #2e2205;
+  --danger: #fca5a5;
+  --danger-tint: #2d0f0f;
+  --danger-fg: #2d0f0f;
+  --focus-ring: #38bdf8;
+  --btn-secondary-bg: var(--surface-3);
+  --btn-secondary-hover: #2a3652;
+  --btn-secondary-edge: var(--ink-30);
+  --elev-1: 0 1px 0 #ffffff0a inset, 0 1px 2px #00000059;
+  --elev-2: 0 1px 0 #ffffff0f inset, 0 8px 24px -12px #0000008c, 0 2px 6px -2px #0006;
+  --elev-3: 0 1px 0 #ffffff14 inset, 0 24px 60px -24px #000000b3, 0 8px 24px -12px #00000080;
+  --glass-chrome: #131b2cc7;
+  --ambient-accent: 0.06;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b1120;
+    --bg-2: #070c17;
+    --bg-hi: #131b2c;
+    --surface-1: #131b2c;
+    --surface-2: #1b2438;
+    --surface-3: #1f2940;
+    --border-hair: #24304a;
+    --border: #2c3a57;
+    --border-strong: #3a4a6b;
+    --fg: #f1f5f9;
+    --ink: #f1f5f9;
+    --ink-80: #dbe3ed;
+    --ink-60: #bfcad9;
+    --ink-50: #aebbcc;
+    --ink-40: #8593a8;
+    --ink-30: #64748b;
+    --muted: #aebbcc;
+    --accent: #38bdf8;
+    --accent-fg: #06131f;
+    --accent-tint: #10293a;
+    --accent-soft: #38bdf829;
+    --accent-block: #0c2536;
+    --accent-block-fg: #bae6fd;
+    --success: #4ade80;
+    --success-tint: #0f2a18;
+    --warning: #fbbf24;
+    --warning-tint: #2e2205;
+    --danger: #fca5a5;
+    --danger-tint: #2d0f0f;
+    --danger-fg: #2d0f0f;
+    --focus-ring: #38bdf8;
+    --btn-secondary-bg: var(--surface-3);
+    --btn-secondary-hover: #2a3652;
+    --btn-secondary-edge: var(--ink-30);
+    --elev-1: 0 1px 0 #ffffff0a inset, 0 1px 2px #00000059;
+    --elev-2: 0 1px 0 #ffffff0f inset, 0 8px 24px -12px #0000008c, 0 2px 6px -2px #0006;
+    --elev-3: 0 1px 0 #ffffff14 inset, 0 24px 60px -24px #000000b3, 0 8px 24px -12px #00000080;
+    --glass-chrome: #131b2cc7;
+    --ambient-accent: 0.06;
+  }
+}
 
-  --color-debit: #b42318;
-  --color-credit: #067647;
-  --color-onaccount: #b54708;
+/* Tailwind names for the tokens. `inline` keeps the var() so the theme can switch at run time. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-hair: var(--border-hair);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-ink: var(--ink);
+  --color-ink-80: var(--ink-80);
+  --color-ink-60: var(--ink-60);
+  --color-ink-50: var(--ink-50);
+  --color-ink-40: var(--ink-40);
+  --color-ink-30: var(--ink-30);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-block: var(--accent-block);
+  --color-accent-block-fg: var(--accent-block-fg);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-fg: var(--danger-fg);
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  /* Only printed documents use the serif face now. */
-  --font-serif: 'EB Garamond', Georgia, serif;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  /* Names the screens already use, pointed at the shell's tokens. */
+  --color-maroon-50: var(--accent-tint);
+  --color-maroon-100: var(--accent-tint);
+  --color-maroon-500: var(--accent);
+  --color-maroon-600: var(--accent);
+  --color-maroon-700: var(--accent);
+  --color-maroon-800: var(--accent-block);
+  --color-gold-400: var(--warning);
+  --color-gold-500: var(--warning);
+  --color-sand-50: var(--surface-2);
+  --color-sand-100: var(--surface-3);
+  --color-sand-200: var(--border);
+  --color-sand-400: var(--ink-30);
+  --color-sand-600: var(--ink-50);
+  --color-sand-800: var(--ink-80);
+  --color-debit: var(--danger);
+  --color-credit: var(--success);
+  --color-onaccount: var(--warning);
+
+  --font-sans: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* The shell's radii: 14px controls, 18px surfaces, 24px KPI cards. */
+  --radius-sm: 6px;
+  --radius-md: var(--r-sm);
+  --radius-lg: var(--r-md);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-xl);
+  --radius-3xl: var(--r-2xl);
+
+  --shadow-card: var(--elev-1);
+  --shadow-elev-2: var(--elev-2);
+  --shadow-elev-3: var(--elev-3);
 }
 
 @layer base {
@@ -44,20 +220,45 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    @apply bg-sand-50 text-ink font-sans antialiased;
+    margin: 0;
+    color: var(--fg);
+    font-family: var(--font-sans);
     font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* The shell's page: --bg with two faint accent glows. */
+    background:
+      radial-gradient(900px 520px at 88% -6%, color-mix(in srgb, var(--accent) calc(var(--ambient-accent) * 100%), transparent), transparent 62%),
+      radial-gradient(760px 560px at 4% 104%, color-mix(in srgb, var(--accent) calc(var(--ambient-accent) * 60%), transparent), transparent 58%),
+      var(--bg);
+    background-attachment: fixed;
   }
   h1,
   h2,
   h3 {
-    @apply font-sans tracking-tight;
+    font-family: var(--font-sans);
+    letter-spacing: -0.015em;
   }
   :focus-visible {
-    outline: 2px solid var(--color-maroon-500);
+    outline: 3px solid var(--focus-ring);
     outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--accent-soft);
   }
   input[type='number']::-webkit-inner-spin-button {
     -webkit-appearance: none;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--r-pill);
+    background-clip: content-box;
+    border: 2px solid transparent;
   }
 }
 
@@ -65,10 +266,20 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* The shell's small uppercase labels (table heads, nav groups, eyebrows). */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
 }
 
 @media print {
   .no-print {
     display: none !important;
+  }
+  body {
+    background: #fff;
   }
 }

@@ -79,9 +79,9 @@ export function UosSessionWatch() {
 
   if (!uos || phase === 'ok') return null;
   return (
-    <div role="status" className="no-print border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+    <div role="status" className="no-print border-b border-warning/20 bg-warning-tint px-4 py-2.5 text-sm text-warning">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">
-        <Icon name="clock" className="text-amber-700" />
+        <Icon name="clock" className="text-warning" />
         <p className="min-w-0 flex-1">
           {phase === 'ending'
             ? 'Your UOS session ends in about a minute. Save your work, or renew now to keep going.'

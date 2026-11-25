@@ -35,7 +35,7 @@ export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       {forced && (
-        <p className="rounded-lg bg-yellow-50 p-3 text-sm text-sand-800">
+        <p className="rounded-lg bg-warning-tint p-3 text-sm text-warning">
           Your administrator set a temporary password. Choose a new one to continue.
         </p>
       )}

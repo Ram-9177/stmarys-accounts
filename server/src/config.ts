@@ -89,6 +89,25 @@ const EnvSchema = z.object({
   UOS_REDIS_URL: z.string().default(''),
   /** Pre-link existing users to UOS by email on start-up, e.g. "admin:principal@smru.in,baji:baji@smru.in". Only fills empty emails. */
   UOS_LINK_EMAILS: z.string().default(''),
+  // ---- On Account (Finance flow F2, MRF flow B4) ----
+  /** Days an employee has to settle an advance (bills in, unspent cash back) when no date is set. */
+  ADVANCE_EMPLOYEE_DAYS: z.coerce.number().int().min(1).max(365).default(15),
+  /** Limits for one advance by form of payment, in rupees (Finance's settings; a campus can only lower them). */
+  ADVANCE_CASH_LIMIT: z.coerce.number().int().positive().default(10_000),
+  ADVANCE_UPI_LIMIT: z.coerce.number().int().positive().default(100_000),
+  ADVANCE_CARD_LIMIT: z.coerce.number().int().positive().default(200_000),
+  /** Above this, only a main administrator or a Head may approve the payment (the platform's step-up, until UOS provides it). */
+  ADVANCE_HIGH_LIMIT: z.coerce.number().int().positive().default(200_000),
+  /** "second_person": a second person approves every advance before it is paid (F2/F4). "off": prepared = paid. */
+  ADVANCE_APPROVAL: z.enum(['second_person', 'off']).default('second_person'),
+  /** Shared secret the MRF module sends as x-module-credential on /api/mrf/v1/*. Empty = the MRF link is off. */
+  MRF_LINK_SECRET: z.string().default(''),
+
+  /** The university's accent colour in UOS (the org's accent_color, e.g. #095078), so Accounts matches the shell. Empty = UOS default. */
+  UOS_ACCENT_COLOR: z
+    .string()
+    .default('')
+    .refine((v) => v === '' || /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim()), 'UOS_ACCENT_COLOR must be a hex colour such as #095078'),
 });
 
 export interface UosConfig {
@@ -106,6 +125,7 @@ export interface UosConfig {
   revocationCheck: boolean;
   redisUrl: string;
   linkEmails: { username: string; email: string }[];
+  accentColor: string;
 }
 
 export type Config = z.infer<typeof EnvSchema> & {
@@ -182,6 +202,7 @@ function loadUos(env: z.infer<typeof EnvSchema>): UosConfig {
     revocationCheck: env.UOS_REVOCATION_CHECK,
     redisUrl: env.UOS_REDIS_URL.trim() || (env.NODE_ENV === 'production' ? '' : env.REDIS_URL),
     linkEmails,
+    accentColor: env.UOS_ACCENT_COLOR.trim(),
   };
   if (!uos.enabled) return uos;
 
@@ -241,6 +262,9 @@ function load(): Config {
   }
   if (env.DB_APP_ROLE && !SQL_IDENT.test(env.DB_APP_ROLE)) {
     throw new Error('DB_APP_ROLE must be a lowercase SQL identifier, e.g. accounts_app');
+  }
+  if (env.MRF_LINK_SECRET && env.MRF_LINK_SECRET.length < 24) {
+    throw new Error('MRF_LINK_SECRET must be at least 24 characters (e.g. openssl rand -base64 32)');
   }
   const allowedOrigins = [env.APP_ORIGIN, ...env.EXTRA_ORIGINS.split(',')]
     .map((o) => o.trim().replace(/\/$/, ''))

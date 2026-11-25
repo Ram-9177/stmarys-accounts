@@ -327,7 +327,7 @@ export function VendorForm({
           <div className="grid gap-3 md:grid-cols-3">
             {slots.map((s, i) =>
               s ? (
-                <div key={i} className="flex items-center gap-2 rounded-lg border border-gold-500/50 bg-yellow-50/40 px-3 py-2">
+                <div key={i} className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning-tint/60 px-3 py-2">
                   <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openSlot(s)} title="Open file">
                     <p className="truncate text-sm font-medium">{s.kind === 'existing' ? s.file.name : s.name}</p>
                     <p className="text-xs text-sand-600">
@@ -337,7 +337,7 @@ export function VendorForm({
                   <button
                     type="button"
                     aria-label="Remove file"
-                    className="rounded p-1 text-debit hover:bg-red-50"
+                    className="rounded p-1 text-danger hover:bg-danger-tint"
                     onClick={() => setSlots((x) => x.map((y, j) => (j === i ? null : y)))}
                   >
                     ✕

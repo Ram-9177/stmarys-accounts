@@ -114,6 +114,14 @@ const PATHS = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  advance: (
+    <>
+      <path d="M3 8.5h13a3 3 0 0 1 3 3v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M3 8.5V7a2 2 0 0 1 2-2h9" />
+      <path d="M15.5 14.5h2" />
+      <path d="M17 3.5 20 6.5l-3 3" />
+    </>
+  ),
   external: (
     <>
       <path d="M14 4h6v6M20 4l-9 9" />

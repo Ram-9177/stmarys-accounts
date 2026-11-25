@@ -39,9 +39,10 @@ uosRouter.get('/config', (_req, res) => {
           shellUrl: u.shellUrl,
           logoutUrl: u.shellUrl + (u.shellLogoutPath || '/'),
           legacyLogin: u.legacyLogin,
+          accentColor: u.accentColor || null,
           campuses: u.campuses.map((c) => ({ campusId: c.campusId, code: c.code, name: c.name, colleges: c.colleges })),
         }
-      : { enabled: false },
+      : { enabled: false, accentColor: u.accentColor || null },
   );
 });
 

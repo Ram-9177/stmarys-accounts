@@ -30,6 +30,7 @@ export default defineConfig({
       UOS_AUTH_PUBLIC_KEY: b64(uosKeys.publicKey),
       TEST_UOS_PRIVATE_KEY: b64(uosKeys.privateKey),
       UOS_SHELL_URL: 'https://uos.test',
+      MRF_LINK_SECRET: 'test-mrf-link-secret-0123456789',
       UOS_CAMPUS_MAP: JSON.stringify({
         'campus-ap': { code: 'AP', name: 'AP campus', colleges: ['smgg', 'smwec'] },
         'campus-hyd': { code: 'HYD', name: 'Hyderabad campus', colleges: ['smhyd'] },

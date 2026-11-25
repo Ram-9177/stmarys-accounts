@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
-import { takeHandoffPass } from './handoff';
+import { isSafeReturnTo, takeHandoff } from './handoff';
 import { currentPath, mayAutoReenter, rememberCampus, rememberedCampus, reselectUrl } from './links';
 import { hasUnsavedWork, onUnsavedChange, setUnsaved } from './unsaved';
 
@@ -15,22 +15,38 @@ function at(url: string) {
 describe('handoff', () => {
   afterEach(() => at('/'));
 
-  it('takes the pass out of the query string and keeps other parameters', () => {
-    at(`/vouchers?college=smgg&token=${PASS}`);
-    expect(takeHandoffPass()).toBe(PASS);
-    expect(window.location.pathname + window.location.search).toBe('/vouchers?college=smgg');
+  it('reads the exact address the shell opens: /sso-callback#token=…&returnTo=…', () => {
+    at(`/sso-callback#token=${PASS}&returnTo=${encodeURIComponent('/vouchers?college=smgg')}`);
+    expect(takeHandoff()).toEqual({ pass: PASS, returnTo: '/vouchers?college=smgg' });
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/sso-callback');
   });
 
-  it('takes the pass out of the fragment', () => {
-    at(`/dashboard#pass=${PASS}&x=1`);
-    expect(takeHandoffPass()).toBe(PASS);
-    expect(window.location.hash).toBe('#x=1');
+  it('works without returnTo, and from the query string too', () => {
+    at(`/sso-callback#token=${PASS}`);
+    expect(takeHandoff()).toEqual({ pass: PASS, returnTo: null });
+    at(`/dashboard?college=smgg&token=${PASS}`);
+    expect(takeHandoff()).toEqual({ pass: PASS, returnTo: null });
+    expect(window.location.pathname + window.location.search).toBe('/dashboard?college=smgg');
+  });
+
+  it('drops a returnTo that is not a path inside Accounts', () => {
+    for (const bad of ['https://evil.example/', '//evil.example', '/\\evil', '%2F%2Fevil.example', 'javascript:alert(1)']) {
+      at(`/sso-callback#token=${PASS}&returnTo=${encodeURIComponent(bad)}`);
+      expect(takeHandoff()?.returnTo, bad).toBeNull();
+      expect(window.location.hash).toBe('');
+    }
   });
 
   it('ignores values that are not JWT-shaped and leaves the URL alone', () => {
     at('/cash-book?token=abc');
-    expect(takeHandoffPass()).toBeNull();
+    expect(takeHandoff()).toBeNull();
     expect(window.location.search).toBe('?token=abc');
+  });
+
+  it('applies the shell rule for returnTo', () => {
+    expect(isSafeReturnTo('/advances/12')).toBe(true);
+    expect(isSafeReturnTo('/a%0Ab')).toBe(false);
+    expect(isSafeReturnTo('')).toBe(false);
   });
 });
 
@@ -133,12 +149,13 @@ describe('opening Accounts from UOS', () => {
         <p>campus:{a.uos?.campusId ?? '-'}</p>
         <p>college:{a.college}</p>
         <p>switch:{a.switchableColleges.join(',')}</p>
+        <p>returnTo:{a.handoffReturnTo ?? '-'}</p>
       </div>
     );
   }
 
-  it('posts the pass from the URL once, strips it, and limits the session to the campus', async () => {
-    at(`/vouchers?token=${PASS}`);
+  it('posts the pass from the shell address once, strips it, and limits the session to the campus', async () => {
+    at(`/sso-callback#token=${PASS}&returnTo=%2Fvouchers`);
     render(
       <QueryClientProvider client={new QueryClient()}>
         <AuthProvider>
@@ -150,10 +167,11 @@ describe('opening Accounts from UOS', () => {
     expect(screen.getByText('user:clerk')).toBeInTheDocument();
     expect(screen.getByText('campus:campus-ap')).toBeInTheDocument();
     expect(screen.getByText('switch:smgg,smwec,smhyd')).toBeInTheDocument();
+    expect(screen.getByText('returnTo:/vouchers')).toBeInTheDocument();
     const handoffs = calls.filter((c) => c.url === '/api/uos/handoff');
     expect(handoffs).toEqual([{ url: '/api/uos/handoff', body: { pass: PASS } }]);
     expect(calls.some((c) => c.url.startsWith('/api/auth/me'))).toBe(false);
-    expect(window.location.search).toBe('');
+    expect(window.location.hash).toBe('');
     expect(rememberedCampus()).toBe('campus-ap');
   });
 });

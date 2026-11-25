@@ -27,10 +27,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role={t.kind === 'error' ? 'alert' : 'status'}
             className={cx(
-              'pointer-events-auto rounded-lg px-4 py-3 text-sm text-white shadow-lg',
-              t.kind === 'success' && 'bg-credit',
-              t.kind === 'error' && 'bg-debit',
-              t.kind === 'info' && 'bg-sand-800',
+              'pointer-events-auto rounded-lg px-4 py-3.5 text-sm font-semibold shadow-elev-3 ring-1 ring-inset ring-current/15',
+              t.kind === 'success' && 'bg-success-tint text-success',
+              t.kind === 'error' && 'bg-danger-tint text-danger',
+              t.kind === 'info' && 'bg-accent-tint text-accent',
             )}
           >
             {t.message}

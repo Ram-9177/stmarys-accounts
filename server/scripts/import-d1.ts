@@ -17,6 +17,7 @@ import { db } from '../src/db/knex.js';
 import { redis } from '../src/lib/redis.js';
 import { extraFields } from '../src/routes/vendors.js';
 import { voucherNumber } from '../src/routes/vouchers.js';
+import { backfillLegacyAdvances } from '../src/finance/advances.js';
 import { clean, csvList, isoFromAny, isValidIsoDate, norm, normalizeCollegeCode } from '../src/lib/text.js';
 
 type Row = Record<string, unknown>;
@@ -179,6 +180,8 @@ async function main() {
     await chunkInsert(trx, 'vouchers', vouchers);
     await trx.raw("select setval(pg_get_serial_sequence('vouchers','id'), greatest((select coalesce(max(id),0) from vouchers),1))");
     report.vouchers = vouchers.length;
+    // Every imported On Account voucher becomes a tracked advance (cleared ones closed on their cleared date).
+    report.advances = await backfillLegacyAdvances(trx);
 
     // Account heads & blocks
     for (const [table, hasType] of [['account_heads', true], ['blocks', false]] as const) {

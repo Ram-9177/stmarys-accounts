@@ -14,6 +14,8 @@ v2 replaces the Cloudflare Pages + D1 version (kept for reference in [`legacy/`]
 
 On this branch Accounts is also a **UOS module**: staff open it from the UOS launcher with their university sign-in (module pass), each session is limited to the campus picked in UOS, and the screens use the UOS module layout. Password sign-in can stay on during the move (`UOS_LEGACY_LOGIN`). Setup, settings, rollout and open questions: [docs/UOS_INTEGRATION.md](docs/UOS_INTEGRATION.md).
 
+**On Account** follows flows F2 (Finance) and B4 (MRF) of the UOS flow maps: an advance is planned (in Accounts, or by MRF at clearance), approved by a second person, paid, then set against bills or returned; anything left past its date is "to recover". MRF reads the four figures and the paid event (X4) through a small API: [docs/ON_ACCOUNT_MRF.md](docs/ON_ACCOUNT_MRF.md).
+
 ## Local development
 
 Requirements: Node 20+, PostgreSQL 16 and Redis 7 (Homebrew services, or `docker compose up -d`).

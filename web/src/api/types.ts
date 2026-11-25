@@ -18,6 +18,8 @@ export type Permission =
   | 'account_heads'
   | 'view_vendor_ledger'
   | 'manage_vendors'
+  | 'manage_advances'
+  | 'approve_advances'
   | 'create_users'
   | 'reset_passwords'
   | 'block_users'
@@ -57,6 +59,8 @@ export interface UosConfig {
   shellUrl?: string;
   logoutUrl?: string;
   legacyLogin?: boolean;
+  /** The university's accent colour in UOS, if it has one. */
+  accentColor?: string | null;
   campuses?: { campusId: string; code: string; name: string; colleges: CollegeCode[] }[];
 }
 
@@ -90,6 +94,13 @@ export interface College {
 
 export type VoucherType = 'debit' | 'credit' | 'onaccount';
 
+/** The advance an On Account payment (or a return of unspent money) belongs to. */
+export interface VoucherAdvanceLink {
+  id: number;
+  advanceNo: string;
+  role: 'payment' | 'return';
+}
+
 export interface Voucher {
   id: number;
   voucherNo: string;
@@ -118,10 +129,12 @@ export interface Voucher {
   createdByLabel: string;
   createdAt: string;
   updatedAt: string;
+  /** Set when the voucher is an advance's payment (On Account) or money returned on one. */
+  advance?: VoucherAdvanceLink | null;
 }
 
 /** Body for POST /api/vouchers and PUT /api/vouchers/:id */
-export type VoucherInput = Omit<Voucher, 'id' | 'voucherNo' | 'createdBy' | 'createdByLabel' | 'createdAt' | 'updatedAt'>;
+export type VoucherInput = Omit<Voucher, 'id' | 'voucherNo' | 'createdBy' | 'createdByLabel' | 'createdAt' | 'updatedAt' | 'advance'>;
 
 export interface AccountHead {
   id: number;
@@ -248,4 +261,123 @@ export interface AuditLog {
   details: string;
   ip: string;
   createdAt: string;
+}
+
+// ---------------- On Account (Finance flow F2, MRF flow B4) ----------------
+
+export type PayeeKind = 'vendor' | 'employee';
+/** Before payment: planned / prepared (waiting for the second approver) / cancelled. After: with_payee, to_recover, closed. */
+export type AdvanceState = 'planned' | 'prepared' | 'cancelled' | 'with_payee' | 'to_recover' | 'closed';
+export const PAYMENT_FORMS = ['Cash', 'Cheque', 'DD', 'NEFT', 'RTGS', 'IMPS', 'UPI', 'Card'] as const;
+export type PaymentForm = (typeof PAYMENT_FORMS)[number];
+
+export interface AdvanceFigures {
+  given: number;
+  setOff: number;
+  returned: number;
+  settled: number;
+  outstanding: number;
+  toRecover: number;
+  overdue: boolean;
+  dueDate: string | null;
+}
+
+export interface AdvanceSettlement {
+  id: number;
+  kind: 'bill' | 'returned' | 'legacy_clear';
+  billNo: string;
+  billDate: string | null;
+  billTotal: number | null;
+  amount: number;
+  date: string;
+  form: string;
+  reference: string;
+  receiptVoucherId: number | null;
+  notes: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface Advance {
+  id: number;
+  advanceNo: string;
+  college: CollegeCode;
+  status: 'planned' | 'prepared' | 'paid' | 'cancelled';
+  state: AdvanceState;
+  payee: { kind: PayeeKind; name: string; phone: string; vendorId: string; vendorCode: string; vendorGst: string; employeeRef: string };
+  amount: number;
+  plannedForm: string;
+  payment: { form: string; reference: string; bank: string; receivedBy: string; datePaid: string | null } | null;
+  settleBy: string | null;
+  recoveredBy: string;
+  purpose: string;
+  head: string;
+  block: string;
+  caseNo: string;
+  poNo: string;
+  clearanceRef: string;
+  source: 'accounts' | 'mrf' | 'legacy';
+  billsFinal: boolean;
+  voucherId: number | null;
+  closedOn: string | null;
+  returnReason: string;
+  cancelReason: string;
+  remarks: string;
+  plannedBy: string;
+  plannedAt: string | null;
+  preparedBy: string;
+  preparedAt: string | null;
+  approvedBy: string;
+  approvedAt: string | null;
+  figures: AdvanceFigures;
+  settlements: AdvanceSettlement[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdvanceDetail extends Advance {
+  vendorMark: { mark: 'blacklisted' | 'suspended'; reason: string; details: string; until: string | null } | null;
+  track: { at: string; actor: string; action: string; details: Record<string, unknown> }[];
+  can: { prepare: boolean; approve: boolean; sendBack: boolean; cancel: boolean; settle: boolean };
+}
+
+export interface AdvanceSummary {
+  given: number;
+  settled: number;
+  outstanding: number;
+  toRecover: number;
+  overdue: number;
+  awaitingApproval: number;
+  planned: number;
+}
+
+export interface AdvanceSettings {
+  employeeDays: number;
+  limits: Record<'Cash' | 'UPI' | 'Card', number>;
+  highLimit: number;
+  approval: 'second_person' | 'off';
+}
+
+export interface AdvancePlanInput {
+  college: CollegeCode;
+  payeeKind: PayeeKind;
+  payeeName: string;
+  payeePhone?: string;
+  vendorId?: string;
+  vendorCode?: string;
+  vendorGst?: string;
+  amount: number;
+  plannedForm?: string;
+  settleBy?: string;
+  recoveredBy?: string;
+  purpose?: string;
+  head?: string;
+  block?: string;
+  caseNo?: string;
+  poNo?: string;
+  remarks?: string;
+  form?: string;
+  reference?: string;
+  bank?: string;
+  receivedBy?: string;
 }

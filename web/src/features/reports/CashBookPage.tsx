@@ -102,9 +102,9 @@ export function CashBookPage() {
         {cb.byDate.length ? (
           <div className="flex flex-wrap gap-2">
             {cb.byDate.map((d) => (
-              <span key={d.date} className="inline-flex items-center gap-2 rounded-full border border-sand-200 bg-white px-3 py-1 text-xs">
-                <b className="text-[#002d72]">📅 {dmy(d.date)}</b>
-                <span className="rounded-full bg-sky-50 px-2 font-bold text-sky-700">{d.count} trans.</span>
+              <span key={d.date} className="inline-flex items-center gap-2 rounded-full border border-sand-200 bg-surface-1 px-3 py-1 text-xs">
+                <b className="text-accent">📅 {dmy(d.date)}</b>
+                <span className="rounded-full bg-accent-tint px-2 font-bold text-accent">{d.count} trans.</span>
                 <span className="text-credit">
                   ({d.receipts} In / {d.payments} Out)
                 </span>
@@ -164,15 +164,15 @@ function CashBookTable({ cb }: { cb: CashBook }) {
         ) : (
           cb.rows.map(({ receipt: r, payment: p }, i) => (
             <tr key={i} className="align-top text-xs">
-              <td className="whitespace-nowrap text-center font-semibold text-[#002d72]">{r ? dmy(r.date) : ''}</td>
+              <td className="whitespace-nowrap text-center font-semibold text-accent">{r ? dmy(r.date) : ''}</td>
               <td className="max-w-72 whitespace-normal">{r?.particulars}</td>
               <td className="text-right font-semibold text-credit tabular">{amt(r?.cash)}</td>
-              <td className="text-right font-semibold text-sky-700 tabular">{amt(r?.bank)}</td>
-              <td className="whitespace-nowrap border-l-2 border-sand-200 text-center font-semibold text-[#002d72]">{p ? dmy(p.date) : ''}</td>
+              <td className="text-right font-semibold text-accent tabular">{amt(r?.bank)}</td>
+              <td className="whitespace-nowrap border-l-2 border-sand-200 text-center font-semibold text-accent">{p ? dmy(p.date) : ''}</td>
               <td className="whitespace-nowrap font-semibold text-maroon-700">{p?.voucher.head}</td>
               <td className="max-w-72 whitespace-normal">{p?.particulars}</td>
               <td className="text-right font-semibold text-debit tabular">{amt(p?.cash)}</td>
-              <td className="text-right font-semibold text-sky-700 tabular">{amt(p?.bank)}</td>
+              <td className="text-right font-semibold text-accent tabular">{amt(p?.bank)}</td>
             </tr>
           ))
         )}
@@ -183,12 +183,12 @@ function CashBookTable({ cb }: { cb: CashBook }) {
             Total Receipts
           </td>
           <td className="text-right text-credit tabular">₹ {formatNumber(t.rcvCash)}</td>
-          <td className="text-right text-sky-700 tabular">₹ {formatNumber(t.rcvBank)}</td>
+          <td className="text-right text-accent tabular">₹ {formatNumber(t.rcvBank)}</td>
           <td colSpan={3} className="border-l-2 border-sand-200 text-center">
             Total Payments
           </td>
           <td className="text-right text-debit tabular">₹ {formatNumber(t.payCash)}</td>
-          <td className="text-right text-sky-700 tabular">₹ {formatNumber(t.payBank)}</td>
+          <td className="text-right text-accent tabular">₹ {formatNumber(t.payBank)}</td>
         </tr>
       </tfoot>
     </Table>

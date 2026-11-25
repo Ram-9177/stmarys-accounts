@@ -70,7 +70,7 @@ function DashboardView({ scope }: { scope: 'all' | 'mine' }) {
             {canVendors && (
               <Link
                 to="/vendor-ledger"
-                className="inline-flex h-8 items-center rounded-lg bg-maroon-700 px-3 text-xs font-medium text-white hover:bg-maroon-800"
+                className="inline-flex h-9 items-center rounded-md bg-accent px-3.5 text-[13px] font-semibold text-accent-fg shadow-card hover:brightness-110"
               >
                 📒 Vendor Ledger
               </Link>
@@ -86,7 +86,7 @@ function DashboardView({ scope }: { scope: 'all' | 'mine' }) {
 
       {vouchers.error && <ErrorBox>{(vouchers.error as Error).message}</ErrorBox>}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-7">
         <StatCard label={mine ? 'My Vouchers' : 'Total Vouchers'} value={stats.count} hint={filteredLabel} />
         <StatCard label={mine ? 'My Total Amount' : 'Total Amount'} value={formatINR(stats.amount)} hint={filteredLabel} tone="gold" />
         <StatCard label="Today" value={stats.today} hint={mine ? 'My vouchers today' : 'Vouchers today'} />

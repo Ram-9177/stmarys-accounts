@@ -7,13 +7,14 @@ import { Icon } from '@/components/icons';
 import { cx } from '@/components/ui';
 import { LinkExcelPill } from '@/features/reports';
 import { collegeLogo } from '@/lib/colleges';
+import { type ThemeChoice, useTheme } from '@/lib/theme';
 import { UosSessionWatch } from '@/uos/UosSessionWatch';
 import { NAV } from './nav';
 
 /**
- * The module frame, laid out like the other UOS modules: a light header with
- * the UOS launcher, the module name and the college being worked on, a
- * sidebar of the module's pages, and the page itself.
+ * The module frame, laid out like the UOS shell (uos-auth-ui): on a desktop a
+ * 244px nav on the left (--bg-2, brand at the top) and the accent "band" across
+ * the top of the page; on a phone the band on top and the nav as a drawer.
  */
 export function AppShell() {
   const { user, college, can, uos } = useSession();
@@ -22,94 +23,96 @@ export function AppShell() {
   const colleges = useColleges();
   const current = colleges.data?.find((c) => c.code === college);
 
+  useEffect(() => setMenuOpen(false), [location.pathname]);
+
   return (
-    <div className="min-h-dvh bg-sand-50">
-      <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-sand-200 bg-white px-3 sm:px-4">
-        <button
-          type="button"
-          className="rounded-lg p-2 text-sand-600 hover:bg-sand-100 lg:hidden"
-          aria-label="Open menu"
-          onClick={() => setMenuOpen((o) => !o)}
-        >
-          <Icon name="menu" />
-        </button>
-        {uos && (
-          <>
-            <a
-              href={uos.shellUrl}
-              className="rounded-lg p-2 text-sand-600 hover:bg-sand-100 hover:text-ink"
-              title="UOS launcher"
-              aria-label="UOS launcher"
-            >
-              <Icon name="apps" />
-            </a>
-            <span className="hidden h-6 w-px bg-sand-200 sm:block" aria-hidden />
-          </>
+    // The shell's .screen-mobile grid: "nav header" "nav body" / 244px 1fr, the header row sized to its content.
+    <div className="min-h-dvh lg:grid lg:grid-cols-[244px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:[grid-template-areas:'nav_header''nav_body']">
+      {/* ---- nav ---- */}
+      <nav
+        aria-label="Accounts"
+        className={cx(
+          'no-print fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col gap-0.5 overflow-y-auto border-r border-hair bg-bg-2 px-3 py-5 transition-transform lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-auto lg:translate-x-0 lg:[grid-area:nav]',
+          menuOpen ? 'translate-x-0 shadow-elev-3' : '-translate-x-full',
         )}
-        <Link to="/" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 hover:bg-sand-50">
-          <img src={collegeLogo(current ?? college)} alt="" className="size-8 shrink-0 rounded-full object-cover ring-1 ring-sand-200" />
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold leading-tight text-ink">Accounts</span>
-            <span className="block truncate text-xs text-sand-600">{current?.name ?? "St. Mary's Institutions"}</span>
+      >
+        <Link to="/" className="mb-3 flex items-center gap-2.5 px-3 py-1 text-[15px] font-bold tracking-[-0.01em] text-fg">
+          <span className="inline-flex size-[30px] shrink-0 items-center justify-center rounded-md bg-fg text-[13px] font-extrabold text-bg">A</span>
+          <span className="min-w-0 truncate">
+            Accounts <span className="font-medium text-ink-40">· {current?.code?.toUpperCase() ?? 'UOS'}</span>
           </span>
         </Link>
-        <div className="flex-1" />
-        <div className="hidden items-center gap-2 md:flex">
-          <CollegeSwitcher colleges={colleges.data} />
-          {can('link_excel') && <LinkExcelPill />}
+        {uos && (
+          <a href={uos.shellUrl} className={navItem(false)}>
+            <Icon name="apps" className="size-5 text-accent" />
+            UOS launcher
+          </a>
+        )}
+        <div className="mb-2 lg:hidden">
+          <CollegeSwitcher colleges={colleges.data} full />
         </div>
-        <UserMenu />
+        <div className="flex-1">
+          {NAV.map((group) => {
+            const items = group.items.filter((i) => i.visible(user, can));
+            if (!items.length) return null;
+            return (
+              <div key={group.title}>
+                <p className="px-3 pt-3.5 pb-1.5 text-[10.5px] font-bold tracking-[0.14em] text-ink-40 uppercase">{group.title}</p>
+                {items.map((item) => (
+                  <NavLink key={item.to} to={item.to} end className={({ isActive }) => navItem(isActive || inSection(item.to, location.pathname))}>
+                    {({ isActive }) => (
+                      <>
+                        <Icon name={item.icon} className={cx('size-5', isActive || inSection(item.to, location.pathname) ? 'text-accent' : 'text-muted')} />
+                        {item.label}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        {uos && (
+          <div className="mt-4 rounded-lg bg-surface-1 px-3 py-2.5 text-xs text-ink-50 shadow-card">
+            <p className="font-semibold text-fg">UOS · {uos.campusName || uos.campusCode || 'Campus'}</p>
+            <p className="mt-0.5">Opened from the UOS launcher.</p>
+          </div>
+        )}
+      </nav>
+      {menuOpen && <div className="no-print fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} aria-hidden />}
+
+      {/* ---- band ---- */}
+      <header className="no-print rounded-b-2xl bg-accent-block px-5 pt-5 pb-6 text-accent-block-fg lg:rounded-none lg:px-8 lg:py-[22px] lg:[grid-area:header]">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="-ml-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-white/10 lg:hidden"
+            aria-label="Open menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Icon name="menu" />
+          </button>
+          <img src={collegeLogo(current ?? college)} alt="" className="hidden size-10 shrink-0 rounded-full bg-white object-cover ring-2 ring-white/25 sm:block" />
+          <div className="min-w-0 flex-1">
+            <h2 className="line-clamp-2 text-xl leading-tight font-extrabold tracking-[-0.02em] lg:text-[22px]">
+              {current?.name ?? "St. Mary's Institutions"}
+            </h2>
+            <p className="mt-0.5 text-xs opacity-80">
+              Accounts{uos ? ` · ${uos.campusName || uos.campusCode || 'UOS'}` : ''}
+            </p>
+          </div>
+          <div className="hidden items-center gap-2 md:flex">
+            <CollegeSwitcher colleges={colleges.data} onBand />
+            {can('link_excel') && <LinkExcelPill />}
+          </div>
+          <UserMenu />
+        </div>
       </header>
 
-      {uos && <UosSessionWatch />}
-
-      <div className="flex">
-        <nav
-          className={cx(
-            'no-print fixed inset-y-14 left-0 z-20 flex w-64 flex-col overflow-y-auto border-r border-sand-200 bg-white px-3 py-4 transition-transform lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:translate-x-0',
-            menuOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
-          )}
-          onClick={() => setMenuOpen(false)}
-        >
-          <div className="mb-3 md:hidden" onClick={(e) => e.stopPropagation()}>
-            <CollegeSwitcher colleges={colleges.data} full />
-          </div>
-          <div className="flex-1">
-            {NAV.map((group) => {
-              const items = group.items.filter((i) => i.visible(user, can));
-              if (!items.length) return null;
-              return (
-                <div key={group.title} className="mb-5">
-                  <p className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-sand-400">{group.title}</p>
-                  {items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end
-                      className={({ isActive }) =>
-                        cx(
-                          'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
-                          isActive ? 'bg-maroon-50 font-medium text-maroon-700' : 'text-sand-800 hover:bg-sand-100',
-                        )
-                      }
-                    >
-                      <Icon name={item.icon} />
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          {uos && (
-            <div className="mt-2 rounded-lg border border-sand-200 bg-sand-50 px-3 py-2.5 text-xs text-sand-600">
-              <p className="font-medium text-sand-800">UOS · {uos.campusName || uos.campusCode || 'Campus'}</p>
-              <p className="mt-0.5">Opened from the UOS launcher.</p>
-            </div>
-          )}
-        </nav>
-        {menuOpen && <div className="fixed inset-0 top-14 z-10 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)} />}
-        <main key={location.pathname + college} className="min-w-0 flex-1 px-4 py-6 lg:px-8">
+      {/* ---- body ---- */}
+      <div className="min-w-0 lg:[grid-area:body]">
+        {uos && <UosSessionWatch />}
+        <main key={location.pathname + college} className="min-w-0 px-4 py-6 sm:px-5 lg:px-8 lg:pt-5 lg:pb-10">
           <Outlet />
         </main>
       </div>
@@ -117,47 +120,52 @@ export function AppShell() {
   );
 }
 
+/** An advance's own page belongs to "Advances" in the nav. */
+function inSection(to: string, path: string) {
+  return to === '/advances' && /^\/advances\/\d+$/.test(path);
+}
+
+/** The shell's .nav-item: 44px rows, the current page on --surface-2 with a hairline and the icon in the accent. */
+function navItem(active: boolean) {
+  return cx(
+    'flex h-11 items-center gap-[11px] rounded-md px-3 text-[13.5px] font-medium transition-colors',
+    active ? 'bg-surface-2 text-fg ring-1 ring-inset ring-line' : 'text-ink-60 hover:bg-surface-2 hover:text-fg',
+  );
+}
+
 /** Colleges this user can switch to. In UOS, colleges on another campus re-open Accounts for that campus. */
-function CollegeSwitcher({ colleges, full }: { colleges?: College[]; full?: boolean }) {
+function CollegeSwitcher({ colleges, full, onBand }: { colleges?: College[]; full?: boolean; onBand?: boolean }) {
   const { college, setCollege, switchableColleges, uos } = useSession();
   const byCode = new Map((colleges ?? []).filter((c) => c.status !== 'inactive').map((c) => [c.code, c]));
   const here = switchableColleges.filter((c) => byCode.has(c) && (!uos || uos.colleges.includes(c)));
   const elsewhere = uos ? switchableColleges.filter((c) => byCode.has(c) && !uos.colleges.includes(c)) : [];
   if (here.length + elsewhere.length < 2) return null;
   const label = (c: string) => byCode.get(c)?.name ?? c;
+  const option = (c: string) => (
+    <option key={c} value={c} className="bg-surface-1 text-fg">
+      {label(c)}
+    </option>
+  );
   return (
     <select
       aria-label="Switch college"
       value={college}
       onChange={(e) => setCollege(e.target.value)}
       className={cx(
-        'h-8 rounded-lg border border-sand-200 bg-white pl-2.5 pr-7 text-xs font-medium text-sand-800 shadow-sm hover:bg-sand-50 focus:border-maroon-500 focus:outline-none',
-        full ? 'w-full' : 'max-w-64',
+        'h-10 cursor-pointer rounded-full pr-8 pl-4 text-[13px] font-semibold focus:outline-none',
+        onBand
+          ? 'max-w-64 border border-white/25 bg-white/10 text-accent-block-fg hover:bg-white/15'
+          : 'w-full border border-line bg-surface-1 text-fg shadow-card',
+        full && 'w-full',
       )}
     >
       {elsewhere.length ? (
         <>
-          <optgroup label={uos?.campusName || uos?.campusCode || 'This campus'}>
-            {here.map((c) => (
-              <option key={c} value={c}>
-                {label(c)}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Other campuses (opens through UOS)">
-            {elsewhere.map((c) => (
-              <option key={c} value={c}>
-                {label(c)}
-              </option>
-            ))}
-          </optgroup>
+          <optgroup label={uos?.campusName || uos?.campusCode || 'This campus'}>{here.map(option)}</optgroup>
+          <optgroup label="Other campuses (opens through UOS)">{elsewhere.map(option)}</optgroup>
         </>
       ) : (
-        here.map((c) => (
-          <option key={c} value={c}>
-            {label(c)}
-          </option>
-        ))
+        here.map(option)
       )}
     </select>
   );
@@ -168,8 +176,15 @@ function initials(name: string): string {
   return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2)).toUpperCase();
 }
 
+const THEMES: { value: ThemeChoice; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
+
 function UserMenu() {
   const { user, logout, uos } = useSession();
+  const [theme, setTheme] = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const name = user.fullName || user.displayName;
@@ -187,32 +202,56 @@ function UserMenu() {
     };
   }, [open]);
 
+  const item = 'flex h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm font-semibold text-fg hover:bg-surface-2';
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-sand-100"
+        className="flex items-center gap-2 rounded-full py-1 pr-2 pl-1 hover:bg-white/10"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Account menu"
       >
-        <span className="flex size-8 items-center justify-center rounded-full bg-maroon-700 text-xs font-semibold text-white">{initials(name)}</span>
-        <span className="hidden max-w-40 truncate text-sm font-medium text-ink sm:block">{name}</span>
-        <Icon name="chevronDown" className="hidden size-4 text-sand-400 sm:block" />
+        {/* The shell's .avatar */}
+        <span className="flex size-[34px] items-center justify-center rounded-full bg-accent-block-fg text-xs font-extrabold text-accent-block">{initials(name)}</span>
+        <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">{name}</span>
+        <Icon name="chevronDown" className="hidden size-4 opacity-70 sm:block" />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-11 z-40 w-64 overflow-hidden rounded-xl border border-sand-200 bg-white py-1 shadow-lg">
-          <div className="border-b border-sand-100 px-3 py-2.5">
-            <p className="truncate text-sm font-medium text-ink">{name}</p>
-            <p className="truncate text-xs text-sand-600">{user.email || user.displayName}</p>
-            {uos && <p className="mt-1 text-xs text-sand-400">Signed in through UOS · {uos.campusName || uos.campusCode}</p>}
+        <div role="menu" className="absolute top-12 right-0 z-50 flex w-72 flex-col gap-0.5 rounded-lg border border-hair bg-surface-1 p-1.5 text-fg shadow-elev-3">
+          <div className="px-3 pt-2 pb-2.5">
+            <p className="truncate text-sm font-bold">{name}</p>
+            <p className="truncate text-xs text-ink-50">{user.email || user.displayName}</p>
+            {uos && <p className="mt-1 text-xs text-ink-40">Signed in through UOS · {uos.campusName || uos.campusCode}</p>}
           </div>
-          <Link role="menuitem" to="/account" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-sm text-sand-800 hover:bg-sand-50">
-            <Icon name="account" className="size-4" /> My account
+          <div className="px-3 pb-2">
+            <p className="pb-1.5 text-[10.5px] font-bold tracking-[0.14em] text-ink-40 uppercase">Theme</p>
+            {/* The shell's .segmented */}
+            <div role="group" aria-label="Theme" className="inline-flex gap-0.5 rounded-full bg-surface-2 p-[3px]">
+              {THEMES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  aria-pressed={theme === t.value}
+                  onClick={() => setTheme(t.value)}
+                  className={cx(
+                    'h-8 rounded-full px-3.5 text-[13px] font-semibold',
+                    theme === t.value ? 'bg-fg text-bg' : 'text-muted hover:text-fg',
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="my-1 border-t border-hair" />
+          <Link role="menuitem" to="/account" onClick={() => setOpen(false)} className={item}>
+            <Icon name="account" className="size-4 text-muted" /> My account
           </Link>
           {uos && (
-            <a role="menuitem" href={uos.shellUrl} className="flex items-center gap-2.5 px-3 py-2 text-sm text-sand-800 hover:bg-sand-50">
-              <Icon name="apps" className="size-4" /> Back to UOS
+            <a role="menuitem" href={uos.shellUrl} className={item}>
+              <Icon name="apps" className="size-4 text-muted" /> Back to UOS
             </a>
           )}
           <button
@@ -222,7 +261,7 @@ function UserMenu() {
               setOpen(false);
               void logout();
             }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-sand-800 hover:bg-sand-50"
+            className={cx(item, 'text-danger')}
           >
             <Icon name="logout" className="size-4" /> {uos ? 'Sign out of Accounts' : 'Sign out'}
           </button>

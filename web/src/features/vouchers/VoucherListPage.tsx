@@ -128,7 +128,7 @@ export function VoucherListPage({ scope }: { scope: 'all' | 'mine' }) {
         }
       />
 
-      <div className="no-print mb-4 grid gap-2 rounded-xl border border-sand-100 bg-white p-3 shadow-card sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="no-print mb-4 grid gap-2 rounded-xl border border-sand-100 bg-surface-1 p-3 shadow-card sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
         <Input
           type="search"
           aria-label="Search"
@@ -227,7 +227,7 @@ export function VoucherListPage({ scope }: { scope: 'all' | 'mine' }) {
               const cleared = v.type === 'onaccount' && !!v.reversalDate;
               const editable = canEditVoucher(v, perms);
               return (
-                <tr key={v.id} className={cx(cleared && 'bg-green-50/40')}>
+                <tr key={v.id} className={cx(cleared && 'bg-success-tint/50')}>
                   <td className="whitespace-nowrap">
                     <div className="font-semibold">{dmy(v.date)}</div>
                     <div className="text-[11px] text-sand-600">{v.voucherNo}</div>
@@ -374,7 +374,7 @@ function IconButton({ label, onClick, children, danger }: { label: string; onCli
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={cx('rounded-md border px-2 py-1 text-sm', danger ? 'border-red-200 hover:bg-red-50' : 'border-sand-200 hover:bg-sand-100')}
+      className={cx('rounded-md border px-2 py-1 text-sm', danger ? 'border-danger/30 text-danger hover:bg-danger-tint' : 'border-line hover:bg-surface-2')}
     >
       {children}
     </button>

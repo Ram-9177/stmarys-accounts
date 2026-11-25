@@ -7,7 +7,8 @@ import { filterByDate, monthLabel, monthlyVolume, topHeads, typeSplit, type Date
 import { ColumnChart, DonutChart, HBarChart } from './charts';
 import { DateRangeFilter } from './shared';
 
-const TYPE_COLORS = { debit: '#7a3800', onaccount: '#880e4f', credit: '#1b4f9e' } as const;
+/** The same status colours as everywhere else in the UOS theme. */
+const TYPE_COLORS = { debit: 'var(--danger)', onaccount: 'var(--warning)', credit: 'var(--success)' } as const;
 
 export function AnalyticsPage() {
   const { college } = useSession();

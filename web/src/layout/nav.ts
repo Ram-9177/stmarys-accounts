@@ -35,6 +35,18 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    title: 'On Account',
+    items: [
+      {
+        to: '/advances',
+        label: 'Advances',
+        icon: 'advance',
+        visible: (u, can) => can('manage_advances') || can('approve_advances') || isVoucherAdmin(u) || can('view_all_vouchers'),
+      },
+      { to: '/advances/new', label: 'New advance', icon: 'plus', visible: (_u, can) => can('manage_advances') },
+    ],
+  },
+  {
     title: 'Vendors',
     items: [
       { to: '/vendors', label: 'Vendors & Agreements', icon: 'vendors', visible: (_u, can) => can('manage_vendors') },

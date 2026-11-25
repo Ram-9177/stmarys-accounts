@@ -23,9 +23,13 @@ architecture as built on 11 Nov 2026 (`uos-auth-server`, `uos-auth-ui`,
   campus opens the Guntur and Budampadu books. The HYD campus opens Hyderabad.
   Picking a college on another campus re-opens Accounts through UOS for that
   campus.
-- The screens use the UOS module layout: a light header with the UOS launcher
-  button, "Accounts" and the open college, a sidebar with icons, and a user menu
-  with *Back to UOS* and *Sign out of Accounts*.
+- The screens look like the UOS shell. Its colours, fonts, corners and shadows
+  are copied value for value from the shell's live stylesheet (§10). The layout
+  matches too: a 244px nav on the left with the brand, the accent band across
+  the top, a light or dark theme, and a user menu with *Back to UOS* and
+  *Sign out of Accounts*.
+- **On Account** is now the F2/B4 flow of the UOS maps. It is joined to MRF:
+  see [ON_ACCOUNT_MRF.md](ON_ACCOUNT_MRF.md).
 - **Printed vouchers, cash books and agreements look exactly as before.**
 - Password sign-in can stay on during the move (`UOS_LEGACY_LOGIN=true`). Then
   switch it off.
@@ -38,8 +42,8 @@ UOS shell (uos-auth-ui)                 Accounts (this app, own subdomain)
 launcher → Accounts
 POST /auth/select-module {moduleId, campusId}
   → module pass (RS256, ~15 min, aud = accounts module id)
-redirect → https://accounts.<domain>/?token=<pass>
-                                        web: takes the pass out of the address bar
+redirect → <base_url>/sso-callback#token=<pass>[&returnTo=<path>]
+                                        web: takes the pass (and returnTo) out of the address bar
                                         POST /api/uos/handoff {pass}
                                           verify signature (auth server PUBLIC key), audience, expiry
                                           check UOS sign-out / deactivation in the platform Redis
@@ -47,10 +51,19 @@ redirect → https://accounts.<domain>/?token=<pass>
                                           find the Accounts user (by UOS id, else by email; else pending)
                                           pass kept in an httpOnly cookie (path /api)
                                         every API request: same checks, limited to the campus's colleges
+                                        then goes to returnTo (a path) or the home page
 ~13 min later (pass about to expire)
 /reselect?moduleId&campusId&returnTo  ← web sends the browser back (silent re-entry)
-→ new pass → returnTo                 → handoff again, same page
+→ <base_url>/sso-callback#token=…&returnTo=…  → handoff again, same page
 ```
+
+The handoff format, the `/reselect` parameters and the shell's `returnTo` rule
+were read from the shell's own code, as served on staging on 25 Nov:
+
+- the shell sends `token` and `returnTo` in the fragment of `/sso-callback`;
+- `returnTo` must start with `/`, must not start with `//`, and must contain no
+  backslash and no control character;
+- `/reselect` stops after 3 tries in a minute.
 
 - **The pass is never stored by page scripts.** After the handoff it lives in an
   httpOnly cookie. API clients may send it as `Authorization: Bearer <pass>`
@@ -117,7 +130,7 @@ value.
 | `UOS_MODULE_ID` | `accounts` or the module's id | Must equal the pass `aud` |
 | `UOS_AUTH_PUBLIC_KEY` / `UOS_AUTH_PUBLIC_KEY_PATH` | PEM or base64 PEM | Several PEM blocks are allowed while keys rotate |
 | `UOS_ISSUER` | *(optional)* | Checks `iss` if set |
-| `UOS_SHELL_URL` | `https://uos.smru.in` | May include a path (staging serves the shell at `/auth`) |
+| `UOS_SHELL_URL` | `https://stage-stmarys-uos.supercxo.ai` | The shell's address (on staging it is served at the root; `/auth/` redirects there) |
 | `UOS_SHELL_LOGOUT_PATH` | *(optional)* | Where *Sign out of Accounts* lands; default is the shell home |
 | `UOS_CAMPUS_MAP` | `'{"<AP id>": ["smgg","smwec"], "<HYD id>": ["smhyd"]}'` | Campus → colleges; a college belongs to one campus |
 | `UOS_ORG_ID` | SMRU's org id | Passes for other universities are refused |
@@ -129,6 +142,8 @@ value.
 | `UOS_LINK_EMAILS` | `admin:principal@smru.in,baji:baji@smru.in` | Gives existing users their UOS email at start-up; only fills empty emails |
 | `REDIS_KEY_PREFIX` | `accounts:` | When sharing a Redis with other UOS services |
 | `DATABASE_SCHEMA`, `MIGRATION_DATABASE_URL`, `DB_APP_ROLE` | `accounts`, admin URL, `accounts_app` | For the tenant-DB layout (§6) |
+| `UOS_ACCENT_COLOR` | `#095078` | The university's accent in UOS (its `accent_color`), applied the way the shell applies it. Empty = the UOS default |
+| `MRF_LINK_SECRET`, `ADVANCE_*` | | On Account and the MRF link: see [ON_ACCOUNT_MRF.md](ON_ACCOUNT_MRF.md) §6 |
 
 ## 5. Rollout
 
@@ -170,25 +185,28 @@ is not added yet (§8); campus scope is enforced in the API for now.
 
 ## 7. Open questions to confirm against the platform code
 
-I couldn't open the SuperCXO repos from this session. These details follow the
-architecture document, and the code accepts the common variants until they are
-confirmed:
+I couldn't open the SuperCXO repos from this session. What the shell's served
+code shows is now settled:
 
-1. **Handoff parameter**: where the shell puts the pass when it redirects. We
-   accept `token`, `pass`, `access_token`, `module_pass` and `module_token`, in
-   the query string or the fragment (`web/src/uos/handoff.ts`).
+- the handoff;
+- `/reselect`;
+- the theme tokens.
+
+The rest follows the architecture document, and the code accepts the common
+variants until they are confirmed:
+
+1. ~~Handoff parameter~~ **Settled**: `/sso-callback#token=<pass>&returnTo=<path>`.
 2. **Pass claim names**: person id (`sub`), email, name, org (`org_id` or
    `orgId`), campus (`campus_id`, `campusId` or a `campus` object). See
    `normalizeClaims` in `server/src/uos/pass.ts`.
 3. **Revocation keys**: whether `revoked_users` is a set (we also handle a hash,
    sorted set, list or JSON), and whether `signed_out_at` is seconds or
    milliseconds (both handled).
-4. **`/reselect` parameters**: `moduleId`, `campusId`, `returnTo` (a path),
-   exactly as in the architecture document.
+4. ~~`/reselect` parameters~~ **Settled**: `moduleId`, `campusId`, `returnTo`.
 5. **Issuer** (`iss`) value, if passes carry one.
-6. **The shell's theme tokens** (`uos-auth-ui` `src/index.css` `@theme` and
-   `public/theme-init.js`), to match colours exactly. All colours come from
-   `web/src/index.css`, so this is a one-file change.
+6. ~~The shell's theme tokens~~ **Settled**: copied from the shell's stylesheet
+   (§10). One open point: the module cannot see the university's own accent
+   colour (`org.accent_color`), so set `UOS_ACCENT_COLOR` to the same value.
 
 ## 8. Not done yet (phase 2)
 
@@ -202,7 +220,6 @@ confirmed:
   `x-module-credential`). Not needed for sign-in: deactivation is already
   enforced through the Redis check, and names and emails refresh at each entry.
 - **Row-level security** in the tenant schema.
-- **Dark theme**, and the exact UOS shell palette (§7.6).
 
 ## 9. Trying it locally
 
@@ -227,6 +244,31 @@ npm run dev:api & npm run dev:web
 npm run dev:uos -w server -- pass --email principal@smru.in --campus campus-ap
 ```
 
-The last command prints a URL. Opening it is the same as clicking Accounts in the
-UOS launcher. Try an unknown email to see the approval flow, or
-`--minutes 1.6` with a half-filled voucher to see the renewal banner.
+The last command prints `http://localhost:5173/sso-callback#token=…`, the same
+address the shell opens; add `--return-to /advances` to land on a page. Opening
+it is the same as clicking Accounts in the UOS launcher. Try an unknown email to
+see the approval flow, or `--minutes 1.6` with a half-filled voucher to see the
+renewal banner.
+
+## 10. The look: the UOS shell's tokens
+
+Every colour in Accounts comes from `web/src/index.css`, which carries the
+shell's tokens value for value:
+
+| Token | Value |
+|---|---|
+| Page | `--bg` #edf1f6 and `--bg-2` #e5ebf3 |
+| Surfaces | `--surface-1/2/3` #fff, #f4f7fb, #e8eef6 |
+| Borders | #dce3ec, #d3dce7, #c3cfde |
+| Ink | #0f172a down to #8794a5 |
+| Accent | `--accent` #095078, `--accent-block` #0c4a6e (the header band) |
+| Status | success, warning and danger, each with its tint |
+| Shadows | `--elev-1/2/3` |
+| Corners | 10, 14, 18 and 24 px |
+| Controls | 48 px |
+| Fonts | Plus Jakarta Sans (text) and IBM Plex Mono (figures), self-hosted as in the shell |
+
+- **Dark theme.** It works as in the shell. The choice (Light, Dark or System,
+  in the user menu) is kept under `uos-theme`, and `public/theme-init.js`
+  applies it before the first paint.
+- **Printed documents keep their own styles,** so they do not change.

@@ -1,6 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { closeAll, login, makeMainAdmins, makeUser, ORIGIN, resetDb, voucher } from './helpers.js';
 
+/** On Account vouchers now come from an advance: planned and prepared by `by`, approved by a main administrator. */
+async function paidAdvance(by: Awaited<ReturnType<typeof login>>, extra: Record<string, unknown> = {}) {
+  const planned = await by
+    .post('/api/advances')
+    .set('Origin', ORIGIN)
+    .send({ college: 'smgg', payeeKind: 'employee', payeeName: 'Ravi', payeePhone: '9000000000', amount: 1500, form: 'Cash', receivedBy: 'Ravi', ...extra });
+  if (planned.status !== 201) throw new Error(`plan failed: ${JSON.stringify(planned.body)}`);
+  const admin = await login('superadmin');
+  const paid = await admin.post(`/api/advances/${planned.body.advance.id}/approve`).set('Origin', ORIGIN).send({});
+  if (paid.status !== 200) throw new Error(`approve failed: ${JSON.stringify(paid.body)}`);
+  return paid.body.advance as { id: number; voucherId: number; advanceNo: string };
+}
+
 beforeEach(async () => {
   await resetDb();
   await makeMainAdmins();
@@ -38,7 +51,7 @@ describe('vouchers', () => {
     const admin = await login('superadmin');
     await clerk.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Mine' }));
     await other.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Theirs' }));
-    await other.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ head: 'Shared OA', type: 'onaccount', recipientPhone: '9000000000' }));
+    await paidAdvance(await login('clerk'), { head: 'Shared OA' });
 
     const mine = (await clerk.get('/api/vouchers?college=smgg')).body.vouchers.map((v: { head: string }) => v.head).sort();
     expect(mine).toEqual(['Mine', 'Shared OA']);
@@ -69,21 +82,24 @@ describe('vouchers', () => {
     expect((await admin.get('/api/vouchers?college=smwec')).status).toBe(200);
   });
 
-  it('without edit_voucher a user may only update on-account vouchers', async () => {
+  it('without edit_voucher a user may only update on-account vouchers, and never what the advance owns', async () => {
     const clerk = await login('clerk');
     const debit = (await clerk.post('/api/vouchers').set('Origin', ORIGIN).send(voucher())).body.voucher;
-    const oa = (await clerk.post('/api/vouchers').set('Origin', ORIGIN).send(voucher({ type: 'onaccount', recipientPhone: '9000000000' })))
-      .body.voucher;
+    const advance = await paidAdvance(clerk);
+    const oa = (await clerk.get('/api/vouchers?college=smgg')).body.vouchers.find((v: { id: number }) => v.id === advance.voucherId);
+    expect(oa.advance).toMatchObject({ advanceNo: advance.advanceNo, role: 'payment' });
+    const same = { ...oa, college: 'smgg' };
 
     expect((await clerk.put(`/api/vouchers/${debit.id}`).set('Origin', ORIGIN).send(voucher({ amount: 1 }))).status).toBe(403);
-    const cleared = await clerk
-      .put(`/api/vouchers/${oa.id}`)
-      .set('Origin', ORIGIN)
-      .send(voucher({ type: 'onaccount', recipientPhone: '9000000000', reversalDate: '2026-11-20' }));
-    expect(cleared.status).toBe(200);
-    expect(cleared.body.voucher.reversalDate).toBe('2026-11-20');
-    // ...but cannot turn it into a debit voucher
-    expect((await clerk.put(`/api/vouchers/${oa.id}`).set('Origin', ORIGIN).send(voucher({ type: 'debit' }))).status).toBe(403);
+    const described = await clerk.put(`/api/vouchers/${oa.id}`).set('Origin', ORIGIN).send({ ...same, towards: 'Exam stationery' });
+    expect(described.status).toBe(200);
+    expect(described.body.voucher.towards).toBe('Exam stationery');
+    // Clearing is done on the advance (set off or money returned), not by typing a date on the voucher...
+    const cleared = await clerk.put(`/api/vouchers/${oa.id}`).set('Origin', ORIGIN).send({ ...same, reversalDate: '2099-12-31' });
+    expect(cleared.status).toBe(400);
+    expect(cleared.body.error).toMatch(/kept on the advance/);
+    // ...and it cannot be turned into a debit voucher.
+    expect((await clerk.put(`/api/vouchers/${oa.id}`).set('Origin', ORIGIN).send({ ...same, type: 'debit' })).status).toBe(400);
   });
 
   it('editors cannot modify other users\' non-on-account vouchers; admins can; delete is a soft delete', async () => {

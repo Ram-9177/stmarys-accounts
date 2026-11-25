@@ -4,6 +4,7 @@ import { db, migrateLatest } from './db/knex.js';
 import { redis } from './lib/redis.js';
 import { createMainAdmins } from './routes/auth.js';
 import { applyLinkEmails } from './uos/linkEmails.js';
+import { backfillLegacyAdvances, sweepOverdue } from './finance/advances.js';
 import { closeUosRedis } from './uos/revocation.js';
 
 async function main() {
@@ -18,6 +19,15 @@ async function main() {
       console.log('Created main administrator accounts from ADMIN_BOOTSTRAP_PASSWORD');
     }
   }
+
+  // On Account vouchers from before advances were tracked (or just imported) become advances.
+  const backfilled = await backfillLegacyAdvances();
+  if (backfilled) console.log(`On Account: ${backfilled} earlier voucher(s) now tracked as advances`);
+  // Advances past their settle-by date turn "to recover"; MRF is told once per advance.
+  const sweep = () => sweepOverdue().catch((err) => console.error('Overdue sweep failed', err));
+  void sweep();
+  const sweeper = setInterval(sweep, 10 * 60 * 1000);
+  sweeper.unref();
 
   if (config.uos.enabled) {
     const linked = await applyLinkEmails();

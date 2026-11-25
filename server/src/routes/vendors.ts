@@ -141,7 +141,7 @@ vendorsRouter.get(
       .andWhere({ college })
       .andWhereNot('vendor_id', '')
       .orderBy([{ column: 'date', order: 'desc' }, { column: 'id', order: 'desc' }]);
-    res.json({ vouchers: rows.map(voucherDto) });
+    res.json({ vouchers: rows.map((v) => voucherDto(v)) });
   }),
 );
 

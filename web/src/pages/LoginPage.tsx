@@ -19,10 +19,9 @@ interface AuthOptions {
 
 function Screen({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-sand-50">
-      <div className="h-1 bg-maroon-700" aria-hidden />
+    <div className="flex min-h-dvh flex-col">
       <div className="flex flex-1 items-start justify-center px-4 py-10 sm:items-center">{children}</div>
-      <p className="pb-6 text-center text-xs text-sand-400">St. Mary&apos;s Group of Institutions · Accounts</p>
+      <p className="pb-6 text-center text-xs text-ink-40">St. Mary&apos;s Group of Institutions · Accounts · UOS</p>
     </div>
   );
 }
@@ -39,7 +38,8 @@ function Brand({ title, subtitle, logo }: { title: ReactNode; subtitle?: ReactNo
   );
 }
 
-const cardClass = 'w-full max-w-md rounded-2xl border border-sand-200 bg-white p-7 shadow-card';
+/** The shell's .auth-card. */
+const cardClass = 'w-full max-w-[420px] rounded-2xl bg-surface-1 p-7 shadow-elev-2';
 
 export function LoginPage() {
   const auth = useAuth();
@@ -107,9 +107,9 @@ function UosEntryCard({ from, legacy, onUsePassword }: { from: string; legacy: b
     <div className={cardClass}>
       <Brand title="St. Mary's Accounts" subtitle="Vouchers, cash book and vendor ledger · a UOS module" />
       {entryError?.pending ? (
-        <div role="status" className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div role="status" className="mt-6 rounded-xl bg-warning-tint p-4 text-sm text-warning ring-1 ring-inset ring-current/15">
           <p className="flex items-center gap-2 font-medium">
-            <Icon name="clock" className="text-amber-700" /> Waiting for approval
+            <Icon name="clock" className="text-warning" /> Waiting for approval
           </p>
           <p className="mt-1">{entryError.message}</p>
         </div>
@@ -127,7 +127,7 @@ function UosEntryCard({ from, legacy, onUsePassword }: { from: string; legacy: b
         {entryError?.pending ? (
           <a
             href={uosConfig?.shellUrl}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-sand-200 bg-white text-sm font-medium text-ink shadow-sm hover:bg-sand-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-line bg-surface-1 text-[14.5px] font-semibold text-fg shadow-card hover:bg-surface-2"
           >
             <Icon name="apps" className="size-4" /> Back to UOS
           </a>
@@ -137,7 +137,7 @@ function UosEntryCard({ from, legacy, onUsePassword }: { from: string; legacy: b
           </Button>
         )}
         {legacy && (
-          <button type="button" onClick={onUsePassword} className="h-9 rounded-lg text-sm text-sand-600 hover:bg-sand-50 hover:text-ink">
+          <button type="button" onClick={onUsePassword} className="h-11 rounded-lg text-sm font-semibold text-accent hover:bg-surface-2">
             Sign in with an Accounts password instead
           </button>
         )}
@@ -177,7 +177,7 @@ function CollegePicker({
               key={c.code}
               type="button"
               onClick={() => onPick(c)}
-              className="group flex flex-col items-center rounded-2xl border border-sand-200 bg-white p-6 text-center shadow-card transition hover:border-maroon-500/40 hover:shadow-md"
+              className="group flex flex-col items-center rounded-2xl border border-sand-200 bg-surface-1 p-6 text-center shadow-card transition hover:border-maroon-500/40 hover:shadow-md"
             >
               <img src={collegeLogo(c)} alt="" className="size-16 rounded-full object-cover ring-1 ring-sand-200" />
               <h2 className="mt-4 text-base font-semibold text-ink">{c.name}</h2>
@@ -230,7 +230,7 @@ function LoginCard({ college, ssoEnabled, initialError, onBack }: { college: Col
         {ssoEnabled && (
           <a
             href={`/api/auth/sso/microsoft?college=${encodeURIComponent(college.code)}`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-sand-200 text-sm font-medium shadow-sm hover:bg-sand-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-line bg-surface-1 text-[14.5px] font-semibold text-fg shadow-card hover:bg-surface-2"
           >
             <svg viewBox="0 0 21 21" className="size-4" aria-hidden>
               <rect width="10" height="10" fill="#f25022" />
@@ -277,7 +277,7 @@ function BootstrapCard() {
         Choose the main administrator password. It is used to sign in as <b>superadmin</b> on every campus.
       </p>
       {done ? (
-        <p className="mt-6 rounded-lg bg-green-50 p-3 text-sm text-credit">Administrator created. Loading sign-in…</p>
+        <p className="mt-6 rounded-lg bg-success-tint p-3 text-sm text-success">Administrator created. Loading sign-in…</p>
       ) : (
         <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
           <Field label="Password" hint="At least 8 characters.">

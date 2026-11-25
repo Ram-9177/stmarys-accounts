@@ -79,7 +79,7 @@ export function ExportsPage() {
         {can('cash_book') && (
           <Card title="Cash Book">
             <p className="mb-4 text-sm text-sand-600">Date-wise receipts vs payments with print and Excel export.</p>
-            <Link to="/cash-book" className="inline-flex h-10 items-center rounded-lg bg-maroon-700 px-4 text-sm font-medium text-white hover:bg-maroon-800">
+            <Link to="/cash-book" className="inline-flex h-12 items-center rounded-lg bg-accent px-5 text-[14.5px] font-semibold text-accent-fg shadow-card hover:brightness-110">
               Open Cash Book →
             </Link>
           </Card>

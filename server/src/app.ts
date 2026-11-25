@@ -13,6 +13,8 @@ import { authRouter } from './routes/auth.js';
 import { blocksRouter, headsRouter } from './routes/lookups.js';
 import { usersRouter } from './routes/users.js';
 import { uosRouter } from './routes/uos.js';
+import { advancesRouter } from './routes/advances.js';
+import { mrfRouter } from './routes/mrf.js';
 import { vendorsRouter } from './routes/vendors.js';
 import { vouchersRouter } from './routes/vouchers.js';
 
@@ -42,8 +44,9 @@ export function createApp() {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-          fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+          // Fonts are self-hosted (the UOS shell's Plus Jakarta Sans and IBM Plex Mono).
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          fontSrc: ["'self'", 'data:'],
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
           connectSrc: ["'self'"],
           frameSrc: ["'self'", 'blob:'],
@@ -76,11 +79,14 @@ export function createApp() {
   });
   app.use('/api/auth', authRouter);
   app.use('/api/uos', uosRouter);
+  // Server-to-server link with the MRF module (shared secret, no cookies).
+  app.use('/api/mrf/v1', mrfRouter);
   app.use('/api/colleges', collegesRouter);
   app.use('/api/vouchers', requireAuth(), vouchersRouter);
   app.use('/api/heads', requireAuth(), headsRouter);
   app.use('/api/blocks', requireAuth(), blocksRouter);
   app.use('/api/vendors', requireAuth(), vendorsRouter);
+  app.use('/api/advances', requireAuth(), advancesRouter);
   app.use('/api/users', requireAuth(), usersRouter);
   app.use('/api/audit', requireAuth(), auditRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown API route')));

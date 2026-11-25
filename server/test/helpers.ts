@@ -12,7 +12,9 @@ export const PASSWORD = 'Correct-Horse-9';
 
 export async function resetDb() {
   await db.migrate.latest();
-  await db.raw('TRUNCATE vendor_files, vendors, audit_logs, blocks, account_heads, vouchers, users RESTART IDENTITY CASCADE');
+  await db.raw(
+    'TRUNCATE advance_log, advance_settlements, advances, vendor_marks, mrf_outbox, mrf_inbox, vendor_files, vendors, audit_logs, blocks, account_heads, vouchers, users RESTART IDENTITY CASCADE',
+  );
   await db('colleges').whereNotIn('code', ['smgg', 'smwec', 'smhyd']).delete();
   await db('colleges').update({ status: 'active' });
   await redis.flushdb();

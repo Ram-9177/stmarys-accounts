@@ -6,9 +6,9 @@
  *     Prints a throwaway RS256 key pair. Put UOS_AUTH_PUBLIC_KEY and
  *     UOS_DEV_PRIVATE_KEY in server/.env (with UOS_ENABLED=true etc.).
  *
- *   npm run dev:uos -w server -- pass --email principal@smru.in --campus <campus id> [--sub <uos user id>] [--name "..."] [--minutes 15]
- *     Signs a module pass like /auth/select-module does and prints the URL
- *     the shell would open (APP_ORIGIN/?token=<pass>).
+ *   npm run dev:uos -w server -- pass --email principal@smru.in --campus <campus id> [--sub <uos user id>] [--name "..."] [--minutes 15] [--return-to /path]
+ *     Signs a module pass like /auth/select-module does and prints the address
+ *     the shell would open: APP_ORIGIN/sso-callback#token=<pass>&returnTo=<path>.
  */
 import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
@@ -58,8 +58,10 @@ if (command === 'keys') {
     pem,
     { algorithm: 'RS256', audience: process.env.UOS_MODULE_ID || 'accounts', expiresIn: Math.round(minutes * 60) },
   );
+  // Exactly what the shell opens: <base_url>/sso-callback#token=<pass>[&returnTo=<path>]
   const origin = (process.env.APP_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
-  console.log(`${origin}/?token=${pass}`);
+  const returnTo = arg('return-to');
+  console.log(`${origin}/sso-callback#token=${encodeURIComponent(pass)}${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ''}`);
 } else {
   console.error('Usage: dev:uos -- keys | pass --email <email> --campus <campus id>');
   process.exit(1);

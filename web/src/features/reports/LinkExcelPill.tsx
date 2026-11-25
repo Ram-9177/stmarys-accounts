@@ -206,10 +206,11 @@ export function LinkExcelPill() {
         onClick={onClick}
         title={title}
         className={cx(
-          'h-8 max-w-56 truncate rounded-lg border px-3 text-xs font-medium',
+          // Sits on the accent band in the header.
+          'h-10 max-w-56 truncate rounded-full border px-4 text-[13px] font-semibold',
           state === 'unlinked'
-            ? 'border-sand-200 bg-white text-sand-800 hover:bg-sand-50'
-            : 'border-gold-400 bg-gold-400/15 text-sand-800',
+            ? 'border-white/25 bg-white/10 text-accent-block-fg hover:bg-white/15'
+            : 'border-transparent bg-warning-tint text-warning',
           state === 'needs-grant' && 'animate-pulse',
         )}
       >

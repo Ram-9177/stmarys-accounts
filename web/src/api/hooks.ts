@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, get, patch, post, put } from './client';
 import type {
   AccountHead,
+  Advance,
+  AdvanceDetail,
+  AdvancePlanInput,
+  AdvanceSettings,
+  AdvanceState,
+  AdvanceSummary,
   AuditLog,
   Block,
   College,
@@ -25,6 +31,8 @@ export const qk = {
   vendors: (college: CollegeCode) => ['vendors', college] as const,
   users: ['users'] as const,
   audit: ['audit'] as const,
+  advances: (college: CollegeCode) => ['advances', college] as const,
+  advance: (id: number) => ['advance', id] as const,
 };
 
 /** Live sync interval (the legacy app polled the cloud every ~30s). */
@@ -260,3 +268,66 @@ export function useAudit(enabled = true) {
     queryFn: () => get<{ logs: AuditLog[] }>('/api/audit').then((r) => r.logs),
   });
 }
+
+// ---------------- On Account advances ----------------
+
+export function useAdvanceSettings() {
+  return useQuery({
+    queryKey: ['advance-settings'],
+    queryFn: () => get<AdvanceSettings>('/api/advances/settings'),
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function useAdvances(college: CollegeCode | undefined, enabled = true) {
+  return useQuery({
+    queryKey: qk.advances(college ?? ''),
+    queryFn: () => get<{ advances: Advance[]; summary: AdvanceSummary }>('/api/advances', { college }),
+    enabled: !!college && enabled,
+    refetchInterval: LIVE_SYNC_MS,
+  });
+}
+
+export function useAdvance(id: number) {
+  return useQuery({
+    queryKey: qk.advance(id),
+    queryFn: () => get<{ advance: AdvanceDetail }>(`/api/advances/${id}`).then((r) => r.advance),
+    enabled: Number.isInteger(id) && id > 0,
+  });
+}
+
+/** Every act on an advance answers with the advance; the register and the voucher list are refreshed too. */
+function useAdvanceAct<V>(fn: (v: V) => Promise<{ advance: AdvanceDetail | Advance }>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['advances'] });
+      qc.invalidateQueries({ queryKey: ['advance', r.advance.id] });
+      qc.invalidateQueries({ queryKey: ['vouchers'] });
+    },
+  });
+}
+
+export const usePlanAdvance = () => useAdvanceAct((body: AdvancePlanInput) => post<{ advance: Advance }>('/api/advances', { ...body }));
+export const usePrepareAdvance = () =>
+  useAdvanceAct(({ id, ...body }: { id: number; form: string; reference?: string; bank?: string; receivedBy?: string; amount?: number; settleBy?: string }) =>
+    post<{ advance: AdvanceDetail }>(`/api/advances/${id}/prepare`, body),
+  );
+export const useApproveAdvance = () =>
+  useAdvanceAct(({ id, paidDate }: { id: number; paidDate?: string }) => post<{ advance: AdvanceDetail }>(`/api/advances/${id}/approve`, { paidDate }));
+export const useSendBackAdvance = () =>
+  useAdvanceAct(({ id, reason }: { id: number; reason: string }) => post<{ advance: AdvanceDetail }>(`/api/advances/${id}/send-back`, { reason }));
+export const useCancelAdvance = () =>
+  useAdvanceAct(({ id, reason }: { id: number; reason: string }) => post<{ advance: AdvanceDetail }>(`/api/advances/${id}/cancel`, { reason }));
+export const useSetOffBill = () =>
+  useAdvanceAct(({ id, ...body }: { id: number; billNo: string; billDate?: string; billTotal: number; amount: number; notes?: string }) =>
+    post<{ advance: AdvanceDetail }>(`/api/advances/${id}/set-off`, body),
+  );
+export const useRecordReturn = () =>
+  useAdvanceAct(({ id, ...body }: { id: number; amount: number; form: string; reference?: string; date?: string; notes?: string }) =>
+    post<{ advance: AdvanceDetail }>(`/api/advances/${id}/return`, body),
+  );
+export const useBillsFinal = () => useAdvanceAct(({ id }: { id: number }) => post<{ advance: AdvanceDetail }>(`/api/advances/${id}/bills-final`));
+
+export type { AdvanceState };

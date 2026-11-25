@@ -50,6 +50,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    title: 'On Account',
+    perms: [
+      { key: 'manage_advances', label: 'Plan, pay & settle advances' },
+      { key: 'approve_advances', label: 'Approve advances (second approver)' },
+    ],
+  },
+  {
     title: 'Administration',
     perms: [
       { key: 'create_users', label: 'Create Users' },

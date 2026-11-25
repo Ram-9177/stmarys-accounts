@@ -32,7 +32,7 @@ export function RenewedPage() {
   if (status === 'anonymous') return <Navigate to="/login" replace />;
   return (
     <div className="flex min-h-dvh items-center justify-center bg-sand-50 px-4">
-      <div className="max-w-sm rounded-xl border border-sand-200 bg-white p-6 text-center shadow-card">
+      <div className="max-w-sm rounded-xl border border-sand-200 bg-surface-1 p-6 text-center shadow-card">
         <p className="text-base font-semibold text-ink">Session renewed</p>
         <p className="mt-1 text-sm text-sand-600">You can close this tab and carry on in Accounts. Your unsaved work is still in the other tab.</p>
       </div>

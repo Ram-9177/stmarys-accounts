@@ -26,7 +26,7 @@ import { usePrintAction } from './usePrintAction';
 const TYPE_CARDS: { type: VoucherType; title: string; desc: string; tone: string }[] = [
   { type: 'debit', title: 'Debit Voucher', desc: 'Money paid out', tone: 'border-debit text-debit' },
   { type: 'credit', title: 'Credit Voucher', desc: 'Money received', tone: 'border-credit text-credit' },
-  { type: 'onaccount', title: 'On Account Voucher', desc: 'Advance to be cleared later', tone: 'border-onaccount text-onaccount' },
+  { type: 'onaccount', title: 'On Account', desc: 'Advance: plan, approve, then settle', tone: 'border-onaccount text-onaccount' },
 ];
 
 export function VoucherFormPage() {
@@ -56,7 +56,8 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
   const canEditAny = can('edit_voucher');
   const allowed = !existing || canEditVoucher(existing, { username: user.username, canEdit: canEditAny, isAdmin: admin });
   // Without edit_voucher a user may only work on on-account vouchers, and cannot change the type.
-  const typeLocked = !!existing && !canEditAny;
+  // An advance's voucher keeps its type: its money side is managed on the advance.
+  const typeLocked = (!!existing && !canEditAny) || !!existing?.advance;
 
   const [draft, setDraft] = useState<VoucherDraft>(() => (existing ? draftFromVoucher(existing) : emptyDraft('debit', todayISO())));
   const [errors, setErrors] = useState<DraftErrors>({});
@@ -192,9 +193,16 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
               aria-checked={active}
               aria-label={`${c.title} voucher`}
               disabled={disabled}
-              onClick={() => setDraft((d) => changeType(d, c.type))}
+              onClick={() => {
+                // On Account is its own flow now (F2): planned, approved by a second person, then settled.
+                if (c.type === 'onaccount' && !existing) {
+                  navigate(can('manage_advances') ? '/advances/new' : '/advances');
+                  return;
+                }
+                setDraft((d) => changeType(d, c.type));
+              }}
               className={cx(
-                'rounded-xl border-2 bg-white p-4 text-left transition',
+                'rounded-xl border-2 bg-surface-1 p-4 text-left transition',
                 active ? c.tone + ' shadow-card' : 'border-sand-100 text-sand-800 hover:border-sand-200',
                 disabled && 'cursor-not-allowed opacity-40',
               )}
@@ -246,7 +254,16 @@ function VoucherForm({ existing }: { existing: Voucher | null }) {
               </>
             )}
 
-            {t === 'onaccount' && (
+            {t === 'onaccount' && existing?.advance && (
+              <div className="rounded-lg bg-warning-tint px-4 py-3 text-sm text-warning ring-1 ring-current/15 ring-inset md:col-span-2">
+                This voucher is the payment of advance{' '}
+                <Link className="font-mono font-semibold underline" to={`/advances/${existing.advance.id}`}>
+                  {existing.advance.advanceNo}
+                </Link>
+                . Its amount, date, payment and whether it is cleared are kept on the advance; here you can change its description.
+              </div>
+            )}
+            {t === 'onaccount' && !existing?.advance && (
               <>
                 <PhoneField
                   value={draft.recipientPhone}

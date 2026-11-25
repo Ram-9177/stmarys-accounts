@@ -2,7 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, errorMessage, get, post, setSessionLostHandler, triggerUosReauth } from '@/api/client';
 import type { CollegeCode, CurrentUser, Permission, UosConfig, UosSession } from '@/api/types';
-import { takeHandoffPass } from '@/uos/handoff';
+import { applyOrgAccent } from '@/lib/theme';
+import { takeHandoff } from '@/uos/handoff';
 import { currentPath, rememberCampus, rememberedCampus, reselectUrl } from '@/uos/links';
 
 type Status = 'loading' | 'anonymous' | 'authenticated';
@@ -24,6 +25,8 @@ interface AuthState {
   entryError: EntryError | null;
   /** The last session came from UOS and has ended: re-enter through UOS. */
   uosSessionEnded: boolean;
+  /** Where the shell asked to land after this handoff (its returnTo), if any. */
+  handoffReturnTo: string | null;
   /** College whose books are currently open. */
   college: CollegeCode;
   /** Colleges the user can switch to (in a UOS session: the pass's campus, plus other campuses via UOS). */
@@ -67,12 +70,12 @@ interface SessionReply {
  * One start-up request per page load, shared by React StrictMode's double effect:
  * the UOS handoff when the URL carries a module pass, otherwise "who am I".
  */
-let startup: { promise: Promise<SessionReply>; handoff: boolean } | null = null;
+let startup: { promise: Promise<SessionReply>; handoff: boolean; returnTo: string | null } | null = null;
 function startSession() {
   if (!startup) {
-    const pass = takeHandoffPass();
-    const promise = pass ? post<SessionReply>('/api/uos/handoff', { pass }) : get<SessionReply>('/api/auth/me');
-    const entry = { promise, handoff: !!pass };
+    const h = takeHandoff();
+    const promise = h ? post<SessionReply>('/api/uos/handoff', { pass: h.pass }) : get<SessionReply>('/api/auth/me');
+    const entry = { promise, handoff: !!h, returnTo: h?.returnTo ?? null };
     startup = entry;
     promise
       .finally(() =>
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [uosConfig, setUosConfig] = useState<UosConfig | null>(null);
   const [entryError, setEntryError] = useState<EntryError | null>(null);
   const [uosSessionEnded, setUosSessionEnded] = useState(false);
+  const [handoffReturnTo, setHandoffReturnTo] = useState<string | null>(null);
   const [college, setCollegeState] = useState<CollegeCode>(readStoredCollege);
 
   const storeCollege = useCallback((c: CollegeCode) => {
@@ -141,9 +145,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setSessionLostHandler(() => (uosRef.current ? triggerUosReauth() : signOutLocally()));
     get<UosConfig>('/api/uos/config')
-      .then(setUosConfig)
+      .then((cfg) => {
+        setUosConfig(cfg);
+        applyOrgAccent(cfg.accentColor);
+      })
       .catch(() => setUosConfig({ enabled: false }));
-    const { promise, handoff } = startSession();
+    const { promise, handoff, returnTo } = startSession();
+    if (returnTo) setHandoffReturnTo(returnTo);
     promise.then(applySession).catch((e) => {
       if (handoff) {
         const pending = e instanceof ApiError && e.status === 403 && /waiting for approval/i.test(e.message);
@@ -237,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       uosConfig,
       entryError,
       uosSessionEnded,
+      handoffReturnTo,
       college: user ? pickCollege(user, college, scoped) : college,
       switchableColleges,
       setCollege,
@@ -248,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       can,
       canAny: (...ps: Permission[]) => ps.some(can),
     };
-  }, [status, user, uos, uosConfig, entryError, uosSessionEnded, college, setCollege, login, logout, setUser, refreshSession, enterFromUos]);
+  }, [status, user, uos, uosConfig, entryError, uosSessionEnded, handoffReturnTo, college, setCollege, login, logout, setUser, refreshSession, enterFromUos]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

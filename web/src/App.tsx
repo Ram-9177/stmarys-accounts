@@ -4,6 +4,7 @@ import type { Permission } from '@/api/types';
 import { isVoucherAdmin, useAuth } from '@/auth/AuthProvider';
 import { EmptyState, Spinner } from '@/components/ui';
 import { AccountPage, AuditPage, CollegesPage, UsersPage } from '@/features/admin';
+import { AdvanceDetailPage, AdvanceFormPage, AdvancesPage } from '@/features/advances';
 import { AnalyticsPage, CashBookPage, DashboardPage, ExportsPage, MyDashboardPage } from '@/features/reports';
 import { VendorLedgerPage, VendorsPage } from '@/features/vendors';
 import { PrinterSetupPage, VoucherFormPage, VoucherListPage } from '@/features/vouchers';
@@ -12,6 +13,7 @@ import { homePath } from '@/layout/nav';
 import { ForcedPasswordChange } from '@/pages/ChangePasswordPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RenewedPage } from '@/pages/RenewedPage';
+import { SsoCallbackPage } from '@/pages/SsoCallbackPage';
 
 function Protected() {
   const { status, user } = useAuth();
@@ -45,6 +47,8 @@ function Home() {
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/uos/renewed', element: <RenewedPage /> },
+  // The UOS shell opens modules at <base_url>/sso-callback#token=…&returnTo=…
+  { path: '/sso-callback', element: <SsoCallbackPage /> },
   {
     path: '/',
     element: <Protected />,
@@ -57,6 +61,13 @@ const router = createBrowserRouter([
       { path: 'my-vouchers', element: <VoucherListPage scope="mine" /> },
       { path: 'vouchers/new', element: <Gate allow={(can) => can('create_voucher')}><VoucherFormPage /></Gate> },
       { path: 'vouchers/:id/edit', element: <VoucherFormPage /> },
+      {
+        path: 'advances',
+        element: <Gate allow={(can, admin) => admin || can('manage_advances') || can('approve_advances') || can('view_all_vouchers')}><AdvancesPage /></Gate>,
+      },
+      { path: 'advances/new', element: <Gate allow={(can) => can('manage_advances')}><AdvanceFormPage /></Gate> },
+      // The server decides who may open one advance (its preparer always can).
+      { path: 'advances/:id', element: <AdvanceDetailPage /> },
       { path: 'vendors', element: <Gate allow={(can) => can('manage_vendors')}><VendorsPage /></Gate> },
       {
         path: 'vendor-ledger',
